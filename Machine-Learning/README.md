@@ -85,11 +85,13 @@ This project strengthened my understanding of the complete machine learning life
 
 ## 📂 Project Files
 
-📄 Report
+[📄 Machine Learning Report](Machine-Learning-Report.pdf)
 
-💻 Python Code
-
-📈 R Code
+[📈 R Script](Machine-Learning-Script.Rmd)
 
 📁 Datasets
-Coming Soon
+
+These are publicly available datasets.
+- **Wine Quality Dataset** :https://www.kaggle.com/datasets/yasserh/wine-quality-dataset
+- **House Price Dataset** :https://www.kaggle.com/datasets/shubhammeshram579/house?resource=download
+- **Lung Cancer Dataset** :https://www.kaggle.com/datasets/mysarahmadbhat/lung-cancer?resource=download
