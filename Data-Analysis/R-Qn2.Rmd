@@ -1,0 +1,720 @@
+---
+title: "ST2195 Question Part 2"
+author: "Glenda Ho Ru Si"
+date: "2025-02-20"
+output: html_document
+---
+
+# ST2195 Coursework Project Part 2 2024/2025
+
+### Name: Glenda Ho
+
+### Student ID: 230572931
+
+### Part 2) R
+
+## Part 2a)
+
+### Install and load all the libraries required for part 2.
+
+**"reshape2"** provides functions to reshape data frames between wide and long formats (similar to tidyr).
+
+**"ggthemes"** extends ggplot2 with additional themes, color palettes, and other helpful customization tools for ggplot-based visualizations.
+
+**"viridis"** provides color palettes that are perceptually uniform.
+
+**"RColorBrewer"** provides a large set of color palettes that are colorblind-friendly and suitable for various kinds of plots.
+
+**"lubridate"** simplifies working with date-times in R.
+
+**"car"** stands for "Companion to Applied Regression." It includes functions for regression diagnostics, data exploration, and statistical tests.
+
+**"caret"** is a complete package designed for training and assessing machine learning models.
+
+**"glmnet"** offers a collection of functions for fitting generalized linear models (GLM) using elastic net regularization.
+
+**"tidyverse"** is a collection of R packages designed for data manipulation, visualization, and analysis.It includes ggplot2, dplyr, tidyr, readr, etc.
+
+**"dplyr"** provides functions for data manipultaion.
+
+**"readr"** is used for reading the files in CSV format.
+
+**"ggplot2"** is for creating data visualisations.
+
+**"tidyr"** helps tidy and reshape data by converting it between wide and long formats.
+
+```{r}
+packages <- c("reshape2", "ggthemes", "viridis", "RColorBrewer", 
+              "lubridate", "car", "caret","glmnet","tidyverse")
+
+install_missing <- packages[!(packages %in% installed.packages()[, "Package"])]
+if(length(install_missing)) install.packages(install_missing)
+
+lapply(packages, library, character.only = TRUE) 
+```
+
+### For Part 2a) and 2b), a file clean was done due to memory issue, ensuring smoother operations.
+
+Define the list of CSV file names as **"CSV_files"**.
+
+Construct a **"for"** loop to iterate over each CSV file in the **"CSV_files"** list generated earlier.
+
+Within the loop,\
+**"tryCatch()"** tries to read each file and allows you to handle warnings and errors separately.\
+**"read_csv()"** reads the CSV file.\
+The **"locale()"** function specifies the encoding format: First, it tries to read the file with UTF-8 encoding. If an error occurs, it falls back to reading the file with Latin-1 encoding.\
+**"(warning = function(w))"** ensures that if there is a warning, it prints a message with the warning.\
+**"(error = function(e))"** ensures that if there is an error, it prints the error message and switches to the Latin-1 encoding as a fallback.
+
+Within the loop,\
+-specify the **"Colums_Needed"** and update the dataset as **"Updated_data"**.\
+-eliminate rows containing missing values to clean the data, ensuring only relevant information is retained using **"na.omit()"**.\
+-save the refined dataset into a new csv file **"NewCSV"**, renaming it according to the respective year with **"Q2ab.csv"**, Example: 1995Q2ab.CSV.\
+-**"write_csv(Updated_data, NewCSV)"** writes the processed data to a new CSV file.
+
+[Note: The file will be stored in the working directory where the code file resides. The original file (1995.csv) will remain unaltered.]
+
+```{r}
+CSV_files <- paste0(1995:1999, ".csv")
+
+for (CSV in CSV_files) {
+  tryCatch({
+    data <- read_csv(CSV, locale = locale(encoding = "UTF-8"),show_col_types = FALSE)
+  }, warning = function(w) {
+    print(paste("Warning reading file", CSV, ":", conditionMessage(w)))
+  }, error = function(e) {
+    print(paste("Error decoding file", CSV, ":", conditionMessage(e)))
+    print("Skipping problematic characters and continuing...")
+    data <- read_csv(CSV, locale = locale(encoding = "Latin1"))
+  })
+  
+  Columns_Needed <- c("Year", "DayOfWeek", "TailNum", "ArrDelay", "DepDelay", "CRSDepTime", "DepTime")
+  Updated_data <- data %>% select(all_of(Columns_Needed))
+  
+  Updated_data <- na.omit(Updated_data)
+  
+  CSV_without_extension <- sub("\\.csv$", "", CSV)
+  NewCSV <- paste0(CSV_without_extension, "Q2ab.csv")
+
+  write_csv(Updated_data, NewCSV)
+  
+  print(paste("Processed:", CSV))
+}
+```
+
+Initialize an empty list called **"Empty_listQ2ab"** to hold individual data frames for each year (1995 to 1999).
+
+Create a **"for"** loop to loop over the years from 1995 to 1999 and checks if a corresponding CSV file exists for each year.
+
+Within the loop,\
+**"CSV \<- paste0(year, "Q2ab.csv")"** creates the filename for the current year by appending the year.\
+**"file.exists(CSV)"** checks if the file exists on the disk.\
+**"read_csv(CSV)"** if the file exists, it is read into a data frame and stored in **"Empty_listQ2ab"** using the year as the key.\
+**"message()"** if the file doesn't exist, a message is printed to notify the user that the file for the current year is missing.
+
+After the loop finishes, this block combines all the data frames stored in **"Empty_listQ2ab"** into one single data frame, **"df"**.
+
+Read **"pdf1"** for Part 2b), an additional file containing flight tail numbers along with their corresponding details.
+
+```{r}
+Empty_listQ2ab <- list()
+
+for (year in 1995:1999) {
+  CSV <- paste0(year, "Q2ab.csv")
+  
+  if (file.exists(CSV)) {
+    data <- suppressWarnings(read_csv(CSV, show_col_types = FALSE))
+    
+    if (nrow(problems(data)) > 0) {
+      message("Parsing issues found in file: ", CSV)
+      print(problems(data))  
+    }
+    
+    Empty_listQ2ab[[as.character(year)]] <- data
+  } else {
+    message("File not found for year ", year)
+  }
+}
+
+if (length(Empty_listQ2ab) > 0) {
+  df <- bind_rows(Empty_listQ2ab) 
+} else {
+  df <- data.frame()  
+}
+
+pdf1 <- suppressWarnings(read_csv("plane-data.csv", show_col_types = FALSE))
+```
+
+### Part 2a)
+
+### For Part 2a), the objective is to select a consecutive 5-year subset from the dataset and find out the best times and days of the week to minimise delays each year.
+
+**"years \<- 1995:1999"** defines a sequence of years from 1995 to 1999.
+
+Initialize an empty list called **"least_delay_days"**.
+
+**"weekday_names \<- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")"** creates a vector weekday_names that stores the names of the days of the week.\
+**"names(weekday_names) \<- 1:7"** assigns numerical keys (1 to 7) to each of the weekdays.
+
+```{r}
+years <- 1995:1999
+
+least_delay_days <- list()
+
+weekday_names <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+names(weekday_names) <- 1:7  
+```
+
+Construct a **"for"** loop to iterate over the **"years"** from 1995 to 1999. The subsequent code explanations provided below are all executed within this loop.
+
+Error handling was done, if the file doesn't exist for a specific year, a warning message is printed, and the loop skips to the next year.
+
+Drop rows where DepTime or ArrDelay is missing.
+
+Extract the departure hour.
+
+Calculate mean delay by day and hour.
+
+Compute average arrival and departure delay.
+
+**"delay_pivot"** creates a pivot table for visualization.
+
+Convert to long format for plotting.
+
+Plot heatmap for each year with ggplot2.
+
+```{r}
+for (year in years) {
+  filename <- paste0(year, "Q2ab.csv")
+  
+  if (file.exists(filename)) {
+    df <- read_csv(filename, locale = locale(encoding = "UTF-8"), show_col_types = FALSE)
+  
+    df <- df %>% drop_na(DepTime, DepDelay, ArrDelay)
+ 
+    df <- df %>% mutate(DepHour = as.integer(DepTime / 100))
+    
+    delay_by_time_arr <- df %>%
+      group_by(DayOfWeek, DepHour) %>%
+      summarise(ArrDelay = mean(ArrDelay, na.rm = TRUE), .groups = "drop")
+    
+    delay_by_time_dep <- df %>%
+      group_by(DayOfWeek, DepHour) %>%
+      summarise(DepDelay = mean(DepDelay, na.rm = TRUE), .groups = "drop")
+   
+    avg_delay_by_day_arr <- df %>%
+      group_by(DayOfWeek) %>%
+      summarise(MeanArrDelay = mean(ArrDelay, na.rm = TRUE), .groups = "drop")
+    
+    avg_delay_by_day_dep <- df %>%
+      group_by(DayOfWeek) %>%
+      summarise(MeanDepDelay = mean(DepDelay, na.rm = TRUE), .groups = "drop")
+    
+    least_delay_day_arr <- avg_delay_by_day_arr %>%
+      filter(MeanArrDelay == min(MeanArrDelay, na.rm = TRUE)) %>%
+      pull(DayOfWeek)
+    
+    least_delay_day_dep <- avg_delay_by_day_dep %>%
+      filter(MeanDepDelay == min(MeanDepDelay, na.rm = TRUE)) %>%
+      pull(DayOfWeek)
+    
+    least_delay_days[[as.character(year)]] <- list(
+      least_arrival_day = weekday_names[as.character(least_delay_day_arr)],
+      least_arrival_delay = min(avg_delay_by_day_arr$MeanArrDelay, na.rm = TRUE),
+      least_departure_day = weekday_names[as.character(least_delay_day_dep)],
+      least_departure_delay = min(avg_delay_by_day_dep$MeanDepDelay, na.rm = TRUE)
+    )
+    
+    delay_pivot_arr <- delay_by_time_arr %>%
+      pivot_wider(names_from = DepHour, values_from = ArrDelay, values_fill = NA)
+    
+    delay_pivot_dep <- delay_by_time_dep %>%
+      pivot_wider(names_from = DepHour, values_from = DepDelay, values_fill = NA)
+    
+    delay_long_arr <- delay_pivot_arr %>%
+      pivot_longer(-DayOfWeek, names_to = "DepHour", values_to = "ArrDelay") %>%
+      mutate(
+        DepHour = as.integer(DepHour),
+        DayOfWeek = factor(DayOfWeek, 
+                           levels = rev(1:7),  
+                           labels = rev(c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")))
+      )
+    
+    delay_long_dep <- delay_pivot_dep %>%
+      pivot_longer(-DayOfWeek, names_to = "DepHour", values_to = "DepDelay") %>%
+      mutate(
+        DepHour = as.integer(DepHour),
+        DayOfWeek = factor(DayOfWeek, 
+                           levels = rev(1:7),  
+                           labels = rev(c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")))
+      )
+    
+    p_arr <- ggplot(delay_long_arr, aes(x = DepHour, y = DayOfWeek, fill = ArrDelay)) +
+      geom_tile(color = "white") +  
+      geom_text(aes(label = round(ArrDelay, 1)), size = 3, color = "white") + 
+      scale_fill_gradient(low = "blue", high = "red", na.value = "gray80") +
+      labs(
+        title = paste("Average Arrival Delay by Day and Hour (", year, ")", sep = ""),
+        x = "Departure Hour", y = "Day of the Week", fill = "Avg Arr Delay (min)"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  
+        axis.text.y = element_text(size = 12, face = "bold"), 
+        axis.title.y = element_text(size = 14) 
+      ) +
+      scale_x_continuous(breaks = 0:23, labels = 0:23)  
+    
+    print(p_arr)
+    
+    p_dep <- ggplot(delay_long_dep, aes(x = DepHour, y = DayOfWeek, fill = DepDelay)) +
+      geom_tile(color = "white") +  
+      geom_text(aes(label = round(DepDelay, 1)), size = 3, color = "white") + 
+      scale_fill_gradient(low = "blue", high = "red", na.value = "gray80") +
+      labs(
+        title = paste("Average Departure Delay by Day and Hour (", year, ")", sep = ""),
+        x = "Departure Hour", y = "Day of the Week", fill = "Avg Dep Delay (min)"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  
+        axis.text.y = element_text(size = 12, face = "bold"), 
+        axis.title.y = element_text(size = 14) 
+      ) +
+      scale_x_continuous(breaks = 0:23, labels = 0:23)  
+    
+    print(p_dep)
+    
+  } else {
+    message("Warning: File ", filename, " not found. Skipping...")
+  }
+}
+```
+
+Adjust DayOfWeek (Shift 0 to 7 for Sunday, so Monday = 1, ..., Sunday = 7).
+
+Ensure DayOfWeekName is a factor with correct order.
+
+**"delay_by_time_all"** groups by DayOfWeekName and DepHour, then calculate mean delay.
+
+**"delay_pivot_all"** reshapes the **"delay_by_time_all"** data from long format to wide format.
+
+**"pivot_longer()"** converts the wide format back to long format where **"DepHour"** becomes a column, and **"ArrDelay"** is associated with it, forming **"delay_long"**.
+
+**"delay_long\$DayOfWeekName"** ensures that DayOfWeekName is a factor with the correct order so that the days of the week appear in the correct order on the plot.
+
+Plot heatmap accordingly using ggplot2.
+
+```{r}
+df <- df %>%
+  mutate(
+    DayOfWeekAdjusted = (DayOfWeek + 1) %% 7,
+    DayOfWeekAdjusted = ifelse(DayOfWeekAdjusted == 0, 7, DayOfWeekAdjusted),
+    DayOfWeekName = case_when(
+      DayOfWeekAdjusted == 1 ~ "Monday",
+      DayOfWeekAdjusted == 2 ~ "Tuesday",
+      DayOfWeekAdjusted == 3 ~ "Wednesday",
+      DayOfWeekAdjusted == 4 ~ "Thursday",
+      DayOfWeekAdjusted == 5 ~ "Friday",
+      DayOfWeekAdjusted == 6 ~ "Saturday",
+      DayOfWeekAdjusted == 7 ~ "Sunday"
+    )
+  )
+
+weekday_names_ordered <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+df$DayOfWeekName <- factor(df$DayOfWeekName, levels = weekday_names_ordered)
+
+df <- df %>%
+  mutate(TotalDelay = (ArrDelay + DepDelay) / 2)
+
+delay_by_time_all <- df %>%
+  group_by(DayOfWeekName, DepHour) %>%
+  summarise(MeanTotalDelay = mean(TotalDelay, na.rm = TRUE), .groups = "drop")
+
+delay_pivot_all <- delay_by_time_all %>%
+  pivot_wider(names_from = DepHour, values_from = MeanTotalDelay, values_fill = list(MeanTotalDelay = NA))
+
+delay_long <- delay_pivot_all %>%
+  pivot_longer(cols = -DayOfWeekName, 
+               names_to = "DepHour", 
+               values_to = "TotalDelay") %>%
+  mutate(DepHour = as.integer(DepHour))
+
+delay_long$DayOfWeekName <- factor(delay_long$DayOfWeekName, levels = weekday_names_ordered)
+
+ggplot(delay_long, aes(x = DepHour, y = DayOfWeekName, fill = TotalDelay)) +
+  geom_tile(color = "white") +  
+  geom_text(aes(label = round(TotalDelay, 1)), size = 3, color = "white") +  
+  scale_fill_gradient(low = "blue", high = "red", na.value = "gray80") + 
+  scale_x_continuous(breaks = 0:23, labels = 0:23) +  
+  scale_y_discrete(limits = rev(weekday_names_ordered)) +  
+  labs(
+    title = "Average Total Delay (Arrival + Departure) by Day and Hour (1995-1999)",
+    x = "Departure Hour",
+    y = "Day of the Week",
+    fill = "Average Total Delay (min)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  
+    axis.text.y = element_text(size = 12, face = "bold"), 
+    axis.title.y = element_text(size = 14), 
+    legend.position = "bottom"
+  )
+
+```
+
+**"weekday_delays \<- weekday_delays %\>% mutate(DayOfWeek = factor(DayOfWeek, levels = 1:7, labels = weekday_names))"** ensures that the weekday are converted correctly.
+
+Calculate mean arrival delay by day of the week.
+
+Create the bar graph using ggplot2.
+
+```{r}
+df <- df %>%
+  mutate(TotalDelay = ArrDelay + DepDelay)
+
+overall_weekday_delays <- df %>%
+  group_by(DayOfWeek) %>%
+  summarise(MeanTotalDelay = mean(TotalDelay, na.rm = TRUE), .groups = "drop")
+
+weekday_names <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+overall_weekday_delays$DayOfWeek <- factor(weekday_names[overall_weekday_delays$DayOfWeek], levels = weekday_names)
+
+ggplot(overall_weekday_delays, aes(x = DayOfWeek, y = MeanTotalDelay)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(
+    title = "Average Total Delay (Arrival + Departure) by Weekday (1995-1999)",
+    x = "Day of the Week",
+    y = "Overall Average Delay (minutes)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    axis.text.y = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 14)
+  )
+
+```
+
+### Part 2b)
+
+### For part 2b), the objective is to analyse whether older aircraft experience increasing delays over the years.¶
+
+Reload the dataset from above.
+
+Verify that the 5 year time frame is correct.
+
+```{r}
+Empty_listQ2ab <- list()
+
+for (year in 1995:1999) {
+  CSV <- paste0(year, "Q2ab.csv")
+  
+  if (file.exists(CSV)) {
+    data <- suppressMessages(suppressWarnings(read_csv(CSV, show_col_types = FALSE)))
+    
+    Empty_listQ2ab[[as.character(year)]] <- data
+  } else {
+    message("File not found for year ", year)
+  }
+}
+
+if (length(Empty_listQ2ab) > 0) {
+  df <- bind_rows(Empty_listQ2ab) 
+} else {
+  df <- data.frame() 
+}
+
+pdf1 <- suppressMessages(suppressWarnings(read_csv("plane-data.csv", show_col_types = FALSE)))
+
+cat("Years in reloaded dataset:", unique(df$Year), "\n")
+```
+
+**"oldplanedelay \<- df %\>% select(Year, DepDelay, ArrDelay, TailNum) "** selects the columns **'Year'**, **'DepDelay'**, **'ArrDelay'**, and **'TailNum'** from the **"df"** extracts specific columns from a data frame and duplicates them into a new data frame named **"oldplanedelay"**.
+
+**"oldplanedelay \<- oldplanedelay %\>% mutate(TotalDelay = DepDelay + ArrDelay)"**Computes the overall delay for each row by summing the departure delay **(DepDelay)** and arrival delay **(ArrDelay)**, storing the outcome in a newly created column called **'TotalDelay'**.
+
+**"oldplanedelay \<- oldplanedelay %\>% filter(TotalDelay \>= 0) %\>% select(Year, TotalDelay, TailNum)"** extracts rows from the **"oldplanedelay"** data frame to include only rows where the total delay **(TotalDelay)** is at least zero, while keeping only the **'Year'**, **'TotalDelay'**, and **'TailNum'** for further analysis.
+
+**"planedata \<- pdf1 %\>% select(tailnum, issue_date) %\>% filter(!is.na(issue_date))"** selects the **'tailnum'** (TailNum) and **'issue_date'** columns from the **"pdf1"** data frame, which was initially loaded into the program. Any rows with missing values in the **'issue_date'** column are then removed.
+
+```{r}
+oldplanedelay <- df %>%
+  select(Year, DepDelay, ArrDelay, TailNum) 
+
+oldplanedelay <- oldplanedelay %>%
+  mutate(TotalDelay = DepDelay + ArrDelay)
+
+oldplanedelay <- oldplanedelay %>%
+  filter(TotalDelay >= 0) %>%
+  select(Year, TotalDelay, TailNum)
+
+planedata <- pdf1 %>%
+  select(tailnum, issue_date) %>%
+  filter(!is.na(issue_date))
+
+print(planedata)
+print(oldplanedelay)
+```
+
+**"planedata \<- planedata %\>% mutate(issue_date = suppressWarnings(parse_date_time(issue_date, orders = c("ymd", "mdy", "dmy"))), ManufactureYear = year(issue_date))"** converts issue_date to datetime format.
+
+**"oldplanedelay \<- oldplanedelay %\>% left_join(planedata %\>% select(tailnum, ManufactureYear), by = c("TailNum" = "tailnum"))"** merges manufacturing year with flight delay data.
+
+**"oldplanedelay \<- oldplanedelay %\>% mutate(AircraftAge = Year - ManufactureYear)"** calculates aircraft age.
+
+**"oldplanedelay \<- oldplanedelay %\>% filter(!is.na(AircraftAge)) %\>% mutate(AircraftAge = as.numeric(AircraftAge))"** removes invalid values (e.g., negative or NaN aircraft ages).
+
+Debug: Check if all years are present.
+
+```{r}
+planedata <- planedata %>%
+  mutate(issue_date = suppressWarnings(parse_date_time(issue_date, orders = c("ymd", "mdy", "dmy"))),
+         ManufactureYear = year(issue_date))
+
+
+oldplanedelay <- oldplanedelay %>%
+  left_join(planedata %>% select(tailnum, ManufactureYear), 
+            by = c("TailNum" = "tailnum"))
+
+oldplanedelay <- oldplanedelay %>%
+  mutate(AircraftAge = Year - ManufactureYear)
+
+oldplanedelay <- oldplanedelay %>%
+  filter(!is.na(AircraftAge)) %>%
+  mutate(AircraftAge = as.numeric(AircraftAge)) 
+
+print(unique(oldplanedelay$Year))
+```
+
+**"oldplanedelay \<- oldplanedelay %\>% filter(!is.na(AircraftAge))"** ensures that AircraftAge has no NAs before categorisation.
+
+Define and categorise age categories.
+
+```{r}
+oldplanedelay <- oldplanedelay %>%
+  filter(!is.na(AircraftAge))
+
+bins <- c(0, 10, 20, Inf)
+labels <- c("Young", "Middle", "Old")
+
+oldplanedelay$AgeCategory <- cut(oldplanedelay$AircraftAge, 
+                                 breaks = bins, 
+                                 labels = labels, 
+                                 right = TRUE)
+```
+
+**"mean_delay_by_age \<- oldplanedelay %\>% filter(!is.na(AgeCategory)) %\>%\
+group_by(Year, AgeCategory) %\>% summarise(TotalDelay = mean(TotalDelay, na.rm = TRUE), .groups = "drop")"** removes rows where AgeCategory is missing, groups the data by \`ear and AgeCategory, calculates the average TotalDelay for each group, and drops the grouping structure from the resulting dataset.
+
+Plot the bar graph accordingly using ggplot2.
+
+```{r}
+mean_delay_by_age <- oldplanedelay %>%
+  filter(!is.na(AgeCategory)) %>%  
+  group_by(Year, AgeCategory) %>%
+  summarise(TotalDelay = mean(TotalDelay, na.rm = TRUE), .groups = "drop")
+
+ggplot(mean_delay_by_age, aes(x = factor(Year), y = TotalDelay, fill = AgeCategory)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = paste0(round(TotalDelay), " mins")), 
+            position = position_dodge(width = 0.9), vjust = -0.3, size = 3.5) +
+  labs(title = "Average Total Delay by Age Category (1995-1999)",
+       x = "Year",
+       y = "Mean Delay (minutes)",
+       fill = "Age Category") +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+```
+
+Find the category with the highest average total delay for each year and print results accordingly.
+
+```{r}
+ highest_delays <- mean_delay_by_age %>%
+  group_by(Year) %>%
+  filter(TotalDelay == max(TotalDelay)) %>%
+  ungroup()
+
+highest_delays %>%
+  rowwise() %>%
+  mutate(
+    minutes = floor(TotalDelay),
+    seconds = round((TotalDelay - minutes) * 60)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    formatted_delay = sprintf("Year %d: %s has the highest average total delay of %d:%02d.",
+                              Year, AgeCategory, minutes, seconds)
+  ) %>%
+  pull(formatted_delay) %>%
+  cat(sep = "\n")
+```
+
+Peform type II ANOVA.
+
+```{r}
+model <- lm(TotalDelay ~ factor(AgeCategory) + factor(Year), data = oldplanedelay)
+
+anova_table <- Anova(model, type = 2)
+
+print(anova_table)
+```
+
+**"CSVs \<- paste0(1995:1999, "Q2ab.csv")"** generates a list of file names by iterating over years from 1995 to 1999 and formatting each year into the filename pattern **"{year}Q2ab.csv"**.
+
+The code displays the files scheduled for deletion and asks the user whether they wish to proceed.\
+-If the user enters 'Y', confirming deletion, the code proceeds to remove the files.\
+-If the user enters 'N', canceling the action, a message is displayed, and the loop is exited.\
+-If the input is neither 'Y' nor 'N', the user is repeatedly prompted to enter a valid response until one is received.
+
+For each file in the list, the full file path is generated using `os.path.join()`, and `os.remove()` attempts to dYelete it.\
+-If the deletion is successful, a confirmation message is printed.\
+-If the file is not found, an appropriate message is displayed. -Once all files are deleted, a final confirmation message is shown.
+
+```{r}
+CSVs <- paste0(1995:1999, "Q2ab.csv")
+
+cat("Files to be deleted:\n")
+cat(CSVs, sep="\n")
+
+confirmation <- tolower(readline(prompt="Do you want to delete the following files? (Y/N): "))
+
+while (TRUE) {
+  if (confirmation == 'y') {
+    for (CSV in CSVs) {
+      if (file.exists(CSV)) {
+        file.remove(CSV)
+        cat(paste("Deleted:", CSV, "\n"))
+      } else {
+        cat(paste("File not found:", CSV, "\n"))
+      }
+    }
+    cat("Task completed! Cleaned files deleted.\n")
+    break
+  } else if (confirmation == 'n') {
+    cat("Deletion cancelled. Run the code again to delete. Thank you.\n")
+    break
+  } else {
+    confirmation <- tolower(readline(prompt="Invalid input. Please enter 'Y' or 'N': "))
+  }
+}
+```
+
+### Question 2c)
+
+#### For part 2c), the objective is to fit a logistic regression model each year to predict the probability of diverted US flights. The model will incorporate as many features as possible, including departure date attributes, scheduled departure and arrival times, airport coordinates, distance between departure and planned arrival locations, and the carrier. The coefficients will be visualized across different years.
+
+**"CSVs \<- paste0(1995:1999, "Q2c.csv")"** generates a list of CSV file names for each year between 1995 and 1999.
+
+**"Columns_Needed \<- c("Month", "DayofMonth", "CRSDepTime", "CRSArrTime", "Distance", "UniqueCarrier", "Origin", "Dest", "Year", "Diverted")"** defines the specific columns you want to keep in your dataset for each year.
+
+```{r}
+CSVs <- paste0(1995:1999, "Q2c.csv")
+Columns_Needed <- c("Month", "DayofMonth", "CRSDepTime", "CRSArrTime", "Distance", 
+                    "UniqueCarrier", "Origin", "Dest", "Year", "Diverted")
+```
+
+**"coefficients \<- list()"** initializes an empty list.
+
+**"years_list \<- c()"** initializes an empty vector.
+
+```{r}
+coefficients <- list()  
+years_list <- c() 
+```
+
+Create a **"for"** loop to iterate through the range of years from 1995 to 1999. The following explanations apply to the operations performed within the loop.
+
+To read and process data: **"CSV_path \<- paste0(year, "Q2c.csv")"** generates the file path for the CSV corresponding to the current year. **"read_csv(CSV_path)"** then reads the specified CSV file into a data frame.
+
+Select and clean the data.
+
+Converts the categorical columns into a factors.
+
+Remove variables with zero variance (e.g., 'Year').
+
+Next, to divide the data and train the model, use trainIndex to split the dataset into training and testing sets. Then, apply preProcess to standardize the features.
+
+Scale predictors(X) and Target(y).
+
+Train a logistic regression mode.
+
+Then store coefficient and year information.
+
+Finally, display the coefficients for each feature derived from the logistic regression model for the current year. Then, continue to the next year until computations for the final year (1999) are completed.Y
+
+```{r}
+for (year in 1995:1999) {
+  CSV_path <- paste0(year, "Q2c.csv")
+  
+  lrdf_year <- tryCatch(
+    read_csv(CSV_path, locale = locale(encoding = "UTF-8"), show_col_types = FALSE),
+    error = function(e) {
+      message(paste("Error reading file for year", year, ":", e$message))
+      return(NULL)
+    }
+  )
+  if (!is.null(lrdf_year)) {
+    lrdf_year <- lrdf_year %>%
+      select(all_of(Columns_Needed)) %>%
+      drop_na()  
+    
+    categorical_columns <- c("Month", "DayofMonth", "UniqueCarrier", "Origin", "Dest")
+    lrdf_year[categorical_columns] <- lapply(lrdf_year[categorical_columns], as.factor)
+    lrdf_year[categorical_columns] <- lapply(lrdf_year[categorical_columns], as.numeric)
+    
+    X <- lrdf_year %>% select(-Diverted)
+    X <- X[, sapply(X, var) != 0]  # Remove columns with zero variance
+    y <- lrdf_year$Diverted
+   
+    trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
+    X_train <- X[trainIndex, ]
+    X_test <- X[-trainIndex, ]
+    y_train <- y[trainIndex]
+    y_test <- y[-trainIndex]
+    
+    preProcValues <- preProcess(X_train, method = c("center", "scale"))
+    X_train_scaled <- predict(preProcValues, X_train)
+    X_test_scaled <- predict(preProcValues, X_test)
+    
+    model <- glm(y_train ~ ., data = as.data.frame(X_train_scaled), family = binomial)
+    
+    coef_values <- coef(model)[-1]
+    coefficients[[as.character(year)]] <- coef_values
+    years_list <- c(years_list, year)
+    
+    cat("Coefficients for", year, ":\n")
+    for (i in seq_along(coef_values)) {
+      cat(names(coef_values)[i], ":", coef_values[i], "\n")
+    }
+    cat("\n")
+  }
+}
+```
+
+Combine the coefficients into a data frame.
+
+**"long_df \<- coefficients_df %\>% pivot_longer(cols = -Year, names_to = "Feature", values_to = "Coefficient")"** reshapes **"coefficients_df"** from wide format to long format using the **"pivot_longer()"** function from the tidyr package.
+
+Plot bar graph accordingly using ggplot2.
+
+```{r}
+years_list <- unique(years_list)  
+coefficients_df <- as.data.frame(do.call(rbind, coefficients))
+coefficients_df$Year <- years_list 
+
+long_df <- coefficients_df %>%
+  pivot_longer(cols = -Year, names_to = "Feature", values_to = "Coefficient")
+
+ggplot(long_df, aes(x = factor(Year), y = Coefficient, fill = Feature)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Coefficients of Logistic Regression Models Across Years",
+       x = "Year",
+       y = "Coefficient Value",
+       fill = "Feature") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "right")
+```
