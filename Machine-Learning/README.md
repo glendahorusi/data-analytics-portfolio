@@ -17,14 +17,17 @@ Applied supervised and unsupervised machine learning techniques across three rea
 
 ## 🛠 Technologies Used
 
-- R -
-dplyr,
-ggplot2,
-caret,
-randomForest,
-xgboost,
-cluster,
-tidyverse
+### Language used
+- R
+
+### R Packages
+-dplyr
+-ggplot2
+-caret
+-randomForest
+-xgboost
+-cluster
+-tidyverse
 
 ---
 
