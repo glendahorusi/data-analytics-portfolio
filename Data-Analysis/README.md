@@ -165,10 +165,6 @@ This project highlighted that effective analysis begins with well-prepared data.
 
 [📄 Project Report](Data-Analysis-Report.pdf)
 
-[💻 Python Script 1](Python-Qn1.ipynb)
+[💻 Python Script](Python-Qn2.ipynb)
 
-[💻 Python Script 2](Python-Qn2.ipynb)
-
-[📈 R Script 1](R-Qn1.Rmd)
-
-[📈 R Script 2](R-Qn2.Rmd)
+[📈 R Script](R-Qn2.Rmd)
