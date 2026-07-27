@@ -41,18 +41,33 @@ Developed a comprehensive market research proposal to investigate consumer purch
 - Independent Samples t-test
 
 ---
+## Survey Instrument
+
+A comprehensive questionnaire was designed and distributed to collect primary data from consumers. The survey was structured to support hypothesis testing and statistical modelling of the factors influencing Apple product purchasing behaviour.
+
+## 📸 Survey Design
+
+### Apple Consumer Behaviour Survey
+
+![Survey Design](Survey1.png)
+
+Designed and developed a structured consumer behaviour questionnaire to investigate the factors influencing Apple product preferences, purchasing intentions, pricing sensitivity, privacy perceptions and sustainability awareness.
+
+---
+
+### Survey Structure
+
+![Survey Sections](Survey2.png)
+
+Organised the survey into four research themes covering product preferences, price sensitivity, ecosystem and privacy, and sustainability to support subsequent statistical analysis and hypothesis testing.
+
+---
 
 ## 📊 Key Results
 
 - Designed a structured market research framework to investigate consumer behaviour.
 - Selected appropriate statistical techniques to evaluate customer preferences and purchasing decisions.
 - Developed business recommendations to support pricing strategy, customer retention and product positioning.
-
----
-
-## 📊 Project Preview
-
-*(Insert survey design or framework images.)*
 
 ---
 
