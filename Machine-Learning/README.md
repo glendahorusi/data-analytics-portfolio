@@ -21,13 +21,13 @@ Applied supervised and unsupervised machine learning techniques across three rea
 - R
 
 ### R Packages
--dplyr
--ggplot2
--caret
--randomForest
--xgboost
--cluster
--tidyverse
+- dplyr
+- ggplot2
+- caret
+- randomForest
+- xgboost
+- cluster
+- tidyverse
 
 ---
 
