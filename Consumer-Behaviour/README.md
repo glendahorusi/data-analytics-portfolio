@@ -75,6 +75,7 @@ This project strengthened my understanding of how statistical analysis supports 
 
 ## 📂 Project Files
 
-📄 Project Report
+📄 [Project Report](Consumer-Behaviour-Report.pdf)
 
-📑 Survey Questionnaire
+📑 [Survey Questionnaire](Survey Questionnaire)
+
