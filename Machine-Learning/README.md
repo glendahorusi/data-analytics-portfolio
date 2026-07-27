@@ -1,35 +1,95 @@
-# Machine Learning & Predictive Analytics
+# 🧠 Machine Learning & Predictive Analytics
 
 ## Overview
 
-Applied supervised and unsupervised machine learning techniques across three real-world datasets.
+Applied supervised and unsupervised machine learning techniques across three real-world datasets to solve clustering, regression and classification problems. This project demonstrates the complete machine learning workflow, from data preprocessing and feature engineering to model evaluation and interpretation.
 
 ---
 
-## Datasets
+## 🎯 Project Objectives
 
-- Wine Quality
-- House Price Prediction
-- Lung Cancer Classification
+- Discover hidden patterns using unsupervised learning
+- Build predictive regression models for house price estimation
+- Develop classification models for lung cancer prediction
+- Compare model performance using appropriate evaluation metrics
 
 ---
 
-## Techniques
+## 🛠 Technologies Used
 
+- R -
+dplyr
+ggplot2
+caret
+randomForest
+xgboost
+cluster
+tidyverse
+
+---
+
+## 🔍 Methodology
+
+### Wine Quality Dataset
 - Principal Component Analysis (PCA)
 - K-Means Clustering
 - Hierarchical Clustering
-- Regression
-- Classification
+- Cluster Evaluation (Elbow Method & Silhouette Analysis)
+
+### House Price Dataset
+- Data Cleaning & Feature Engineering
+- Regression Modelling
+- Hyperparameter Tuning
+- Model Evaluation
+
+### Lung Cancer Dataset
+- Data Preprocessing
+- Classification Modelling
+- Performance Comparison using Accuracy, F1-score and ROC AUC
 
 ---
 
-## Technologies
+## 📈 Key Results
 
+- Applied unsupervised learning to identify natural groupings within wine quality data.
+- Developed regression models capable of predicting housing prices using multiple predictive features.
+- Compared several classification models to identify the most effective approach for lung cancer prediction.
+
+---
+
+## 📊 Project Preview
+
+*(Insert screenshots of clustering plots, regression results and ROC curves.)*
+
+---
+
+## 💡 Skills Demonstrated
+
+- Machine Learning
+- Data Preprocessing
+- Feature Engineering
+- Regression
+- Classification
+- Clustering
+- Model Evaluation
+- Statistical Analysis
 - R
 
 ---
 
-## Project Files
+## 🌱 What I Learned
 
+This project strengthened my understanding of the complete machine learning lifecycle, from preparing raw data to selecting and evaluating predictive models. Working across three different problem types taught me that choosing an appropriate analytical approach depends on both the business objective and the characteristics of the dataset, rather than applying a single model to every problem.
+
+---
+
+## 📂 Project Files
+
+📄 Report
+
+💻 Python Code
+
+📈 R Code
+
+📁 Datasets
 Coming Soon
