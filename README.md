@@ -1,4 +1,4 @@
-# Hi, I'm Glenda 👋
+# Hi, I'm Glenda Ho👋
 
 🎓 Final-year Data Science & Business Analytics undergraduate at the University of London.
 
@@ -62,7 +62,7 @@ Designed a market research study investigating consumer behaviour and pricing pe
 
 ---
 
-## 📈 Operational Data Analysis & Business Insights
+## 📈 Flight Delay Data Analysis & Business Insights
 
 Analysed operational datasets using Python, SQL and R to generate business insights.
 
@@ -70,7 +70,7 @@ Analysed operational datasets using Python, SQL and R to generate business insig
 
 `Python` `SQL` `EDA`
 
-➡️ [View Project](Operational-Analysis)
+➡️ [View Project](Data-Analysis)
 
 ---
 
