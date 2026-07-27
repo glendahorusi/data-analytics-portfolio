@@ -147,7 +147,7 @@ Ranked predictor importance to identify the variables with the greatest influenc
 
 #### Final Model Comparison
 
-![Final Model Comparison](Final-Model-Comparison.png)
+![Final Model Comparison](Final-Model-Performance.png)
 
 Compared multiple classification models to identify the most accurate and reliable approach for lung cancer prediction.
 
