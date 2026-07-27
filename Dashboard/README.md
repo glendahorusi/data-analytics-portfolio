@@ -68,8 +68,40 @@ This project taught me that effective dashboards are about more than attractive 
 
 ## 📂 Project Files
 
-📄 Project Report
+📄 [Project Report](Tableau Report.pdf)
 
-📊 Tableau Workbook
+📊 [Dashboard PDF](Tableau Dashboard.pdf)
 
-📈 Dashboard Screenshots
+📈 [Tableau Workbook](Dashboard.twbx)
+
+## 📊 Dashboard Preview
+
+### Overall Dashboard
+
+![Overall Dashboard](Sales Trend and Profit Breakdown.png)
+
+---
+
+### Regional Analysis
+
+![Regional Analysis](Regional and Categorical Profitability.png)
+
+---
+
+### Categorical Analysis
+
+![Categorical Analysis](Categorical Sales and Discounts.png)
+
+---
+
+### Shipping Mode Trends
+
+![Shipping Mode Trends](Shipping Mode Trends.png)
+
+---
+
+### Impact of Proposed Discount
+
+![Impact of Proposed Discount](Impact of Proposed Discount.png)
+
+
