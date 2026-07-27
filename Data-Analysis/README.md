@@ -104,10 +104,10 @@ This project highlighted that effective analysis begins with well-prepared data.
 
 [📄 Project Report](Data-Analysis-Report.pdf)
 
-[💻 Python Script 1](Python-Qn1.html)
+[💻 Python Script 1](Python-Qn1.ipynb)
 
-[💻 Python Script 2](Python-Qn2.html)
+[💻 Python Script 2](Python-Qn2.ipynb)
 
-[📈 R Script 1](R-Qn1.html)
+[📈 R Script 1](R-Qn1.Rmd)
 
-[📈 R Script 2](R-Qn2.html)
+[📈 R Script 2](R-Qn2.Rmd)
