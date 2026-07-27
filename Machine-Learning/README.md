@@ -57,23 +57,99 @@ tidyverse
 
 ---
 
-## 📊 Project Preview
+## 📸 Project Highlights
 
-### 🍷 Unsupervised Learning
-  📷 EDA
-  📷 PCA
-  📷 K-Means
-  📷 Silhouette Analysis
+### 🍷 Unsupervised Learning (Wine Dataset)
 
-### 🏡 Regression
-  📷 Model Comparison
-  📷 Feature Importance
-  📷 Prediction Performance
+#### Principal Component Analysis (PCA)
 
-### 🫁 Classification
-  📷 ROC Curve
-  📷 Confusion Matrix
-  📷 Final Model Evaluation
+![PCA](Scree-Plot.png)
+
+Reduced feature dimensionality using Principal Component Analysis (PCA) to preserve data structure and support clustering.
+
+---
+
+#### K-Means Clustering
+
+![K-Means](Elbow-plot.png)
+
+Applied K-Means clustering to identify distinct groups of wines based on their physicochemical characteristics.
+
+---
+
+#### Silhouette Analysis
+
+![Silhouette](Heatmap.png)
+
+Evaluated clustering quality using Silhouette Analysis to determine the optimal number of clusters.
+
+---
+
+#### Hierarchical Clustering
+
+![Hierarchical Clustering](HCA.png)
+
+Performed Hierarchical Cluster Analysis (HCA) to compare clustering structures and validate grouping patterns.
+
+---
+
+## 🏠 Regression Analysis (House Price Dataset)
+
+#### Stepwise Regression
+
+![Stepwise Regression](Stepwise-Regression.png)
+
+Applied stepwise regression to identify the most significant predictors influencing house prices.
+
+---
+
+#### Feature Importance
+
+![Feature Importance](Feature-Importance.png)
+
+Identified the most influential variables contributing to house price predictions through feature importance analysis.
+
+---
+
+#### Model Comparison
+
+![Model Comparison](Model-Comparison.png)
+
+Compared multiple regression models using evaluation metrics such as RMSE and R² to determine the best-performing predictive model.
+
+---
+
+## 🫁 Classification (Lung Cancer Dataset)
+
+#### Confusion Matrix
+
+![Confusion Matrix](Confusion-Matrix.png)
+
+Evaluated classification performance using a confusion matrix to assess prediction accuracy across different outcome classes.
+
+---
+
+#### ROC Curve
+
+![ROC Curve](ROC-Curve.png)
+
+Compared classification models using ROC curves and AUC scores to evaluate their predictive performance.
+
+---
+
+#### Feature Importance
+
+![Classification Feature Importance](Feature-Importance-3.png)
+
+Ranked predictor importance to identify the variables with the greatest influence on lung cancer prediction.
+
+---
+
+#### Final Model Comparison
+
+![Final Model Comparison](Final-Model-Comparison.png)
+
+Compared multiple classification models to identify the most accurate and reliable approach for lung cancer prediction.
 
 ---
 
