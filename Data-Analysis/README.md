@@ -91,7 +91,7 @@ Visualised average departure and arrival delays by hour and weekday using heatma
 
 ![Average Delay by Hour](Average-Delay-Time.png)
 
-Identified early morning departures (approximately 4:30–5:30 AM) as the period with the lowest average flight delays across the five-year dataset. :contentReference[oaicite:2]{index=2}
+Identified early morning departures (approximately 4:30–5:30 AM) as the period with the lowest average flight delays across the five-year dataset. 
 
 ---
 
@@ -99,7 +99,7 @@ Identified early morning departures (approximately 4:30–5:30 AM) as the period
 
 ![Average Delay by Weekday](Average-Delay-Weekday.png)
 
-Compared average delays across weekdays and found Saturday consistently experienced the lowest overall delays. :contentReference[oaicite:3]{index=3}
+Compared average delays across weekdays and found Saturday consistently experienced the lowest overall delays. 
 
 ---
 
@@ -109,7 +109,7 @@ Compared average delays across weekdays and found Saturday consistently experien
 
 ![Aircraft Age Analysis](Aircraft-Age.png)
 
-Compared flight delays across aircraft age groups to investigate whether older aircraft experience greater operational delays. :contentReference[oaicite:4]{index=4}
+Compared flight delays across aircraft age groups to investigate whether older aircraft experience greater operational delays. 
 
 ---
 
@@ -117,7 +117,7 @@ Compared flight delays across aircraft age groups to investigate whether older a
 
 ![Two-Way ANOVA](Anova.png)
 
-Applied Two-Way ANOVA to evaluate the effects of aircraft age and year on flight delays, confirming both factors significantly influence delay patterns. :contentReference[oaicite:5]{index=5}
+Applied Two-Way ANOVA to evaluate the effects of aircraft age and year on flight delays, confirming both factors significantly influence delay patterns. 
 
 ---
 
@@ -127,7 +127,9 @@ Applied Two-Way ANOVA to evaluate the effects of aircraft age and year on flight
 
 ![Logistic Regression Coefficients](Regression.png)
 
-Trained yearly logistic regression models to predict flight diversions and analysed feature coefficients to understand how predictor importance evolved over time. :contentReference[oaicite:6]{index=6}
+Trained yearly logistic regression models to predict flight diversions and analysed feature coefficients to understand how predictor importance evolved over time. 
+
+---
 
 ## 📈 Key Results
 
