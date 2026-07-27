@@ -67,6 +67,8 @@ Conducted exploratory data analysis on the U.S. Flight Delay dataset using Pytho
 ---
 ## 📸 Project Highlights
 
+Pictures used are from Python.
+
 ### 🧹 Data Preprocessing & Integration
 
 #### Data Cleaning Workflow
