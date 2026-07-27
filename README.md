@@ -88,7 +88,9 @@ Developed interactive Tableau dashboards to analyse sales, profitability and pri
 
 # 📄 Resume
 
+You can view or download my latest resume here:
 
+📥 **[Resume (PDF)](Glenda_Resume.pdf)**
 
 ---
 
