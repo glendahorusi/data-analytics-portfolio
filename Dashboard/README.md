@@ -70,7 +70,7 @@ Designed and developed interactive Tableau dashboards to analyse sales performan
 
 ### Impact of Proposed Discount
 *Shows how proposed discount strategies influence sales and profitability.*
-![Impact of Proposed Discount](Impact of Proposed Discount.png)
+![Impact of Proposed Discount](Impact-of-Proposed-Discount.png)
 
 ---
 
