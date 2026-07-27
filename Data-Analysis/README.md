@@ -81,7 +81,7 @@ Preprocessed and consolidated five years (1995–1999) of flight delay data by c
 
 #### Flight Delay Heatmap
 
-![Flight Delay Heatmap](Flight-delay.png)
+![Flight Delay Heatmap](Flight-Delay.png)
 
 Visualised average departure and arrival delays by hour and weekday using heatmaps to identify temporal delay patterns. Only one example was shown.
 
