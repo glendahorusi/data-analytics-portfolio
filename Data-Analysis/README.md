@@ -78,7 +78,7 @@ Preprocessed and consolidated five years (1995–1999) of flight delay data by c
 ---
 
 ## ✈️ Flight Delay Analysis
-
+Pictures used are from Python.
 #### Flight Delay Heatmap
 
 ![Flight Delay Heatmap](Flight-Delay.png)
