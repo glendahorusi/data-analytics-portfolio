@@ -102,12 +102,12 @@ This project highlighted that effective analysis begins with well-prepared data.
 
 ## 📂 Project Files
 
-📄 Project Report
+[📄 Project Report](Data-Analysis-Report.pdf)
 
-💻 Python Scripts
+[💻 Python Script 1](Python-Qn1.html)
 
-💻 SQL Scripts
+[💻 Python Script 2](Python-Qn2.html)
 
-📈 R Scripts
+[📈 R Script 1](R-Qn1.html)
 
-📈 R Scripts
+[📈 R Script 2](R-Qn2.html)
