@@ -68,40 +68,40 @@ This project taught me that effective dashboards are about more than attractive 
 
 ## 📂 Project Files
 
-📄 [Project Report](Tableau Report.pdf)
+📄 [Project Report](Tableau-Report.pdf)
 
-📊 [Dashboard PDF](Tableau Dashboard.pdf)
+📊 [Dashboard PDF](Tableau-Dashboard.pdf)
 
 📈 [Tableau Workbook](Dashboard.twbx)
 
 ## 📊 Dashboard Preview
 
 ### Overall Dashboard
-
-![Overall Dashboard](Sales Trend and Profit Breakdown.png)
+*Monitors sales performance and profitability across different product categories and regions.*
+![Overall Dashboard](Sales-Trend-and-Profit-Breakdown.png)
 
 ---
 
 ### Regional Analysis
-
-![Regional Analysis](Regional and Categorical Profitability.png)
+*Compares regional sales and profitability to identify high- and low-performing countries.*
+![Regional Analysis](Regional-and-Categorical-Profitability.png)
 
 ---
 
 ### Categorical Analysis
-
-![Categorical Analysis](Categorical Sales and Discounts.png)
+*Provides an overview of sales performance, discount distribution and profitability across product categories to identify trends and support pricing decisions.*
+![Categorical Analysis](Categorical-Sales-and-Discounts.png)
 
 ---
 
 ### Shipping Mode Trends
-
-![Shipping Mode Trends](Shipping Mode Trends.png)
+*Evaluates shipping methods and their impact on sales and profit.*
+![Shipping Mode Trends](Shipping-Mode-Trends.png)
 
 ---
 
 ### Impact of Proposed Discount
-
+*Shows how proposed discount strategies influence sales and profitability.*
 ![Impact of Proposed Discount](Impact of Proposed Discount.png)
 
 
