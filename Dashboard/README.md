@@ -44,38 +44,6 @@ Designed and developed interactive Tableau dashboards to analyse sales performan
 
 ## 📊 Dashboard Preview
 
-*(Insert dashboard screenshots.)*
-
----
-
-## 💡 Skills Demonstrated
-
-- Tableau
-- Dashboard Development
-- Business Intelligence
-- KPI Reporting
-- Data Visualisation
-- Interactive Dashboard Design
-- Business Storytelling
-
----
-
-## 🌱 What I Learned
-
-This project taught me that effective dashboards are about more than attractive visualisations. I learned how to organise information, prioritise key metrics and design dashboards that allow users to quickly identify trends, investigate performance and support business decision-making through interactive exploration.
-
----
-
-## 📂 Project Files
-
-📄 [Project Report](Tableau-Report.pdf)
-
-📊 [Dashboard PDF](Tableau-Dashboard.pdf)
-
-📈 [Tableau Workbook](Dashboard.twbx)
-
-## 📊 Dashboard Preview
-
 ### Overall Dashboard
 *Monitors sales performance and profitability across different product categories and regions.*
 ![Overall Dashboard](Sales-Trend-and-Profit-Breakdown.png)
@@ -104,4 +72,30 @@ This project taught me that effective dashboards are about more than attractive 
 *Shows how proposed discount strategies influence sales and profitability.*
 ![Impact of Proposed Discount](Impact of Proposed Discount.png)
 
+---
 
+## 💡 Skills Demonstrated
+
+- Tableau
+- Dashboard Development
+- Business Intelligence
+- KPI Reporting
+- Data Visualisation
+- Interactive Dashboard Design
+- Business Storytelling
+
+---
+
+## 🌱 What I Learned
+
+This project taught me that effective dashboards are about more than attractive visualisations. I learned how to organise information, prioritise key metrics and design dashboards that allow users to quickly identify trends, investigate performance and support business decision-making through interactive exploration.
+
+---
+
+## 📂 Project Files
+
+📄 [Project Report](Tableau-Report.pdf)
+
+📊 [Dashboard PDF](Tableau-Dashboard.pdf)
+
+📈 [Tableau Workbook](Dashboard.twbx)
