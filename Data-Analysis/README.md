@@ -65,18 +65,75 @@ Conducted exploratory data analysis on the U.S. Flight Delay dataset using Pytho
 - Trend Analysis
 
 ---
+## 📸 Project Highlights
+
+### 🧹 Data Preprocessing & Integration
+
+#### Data Cleaning Workflow
+
+![Data Cleaning](Data-Cleaning.png)
+
+Preprocessed and consolidated five years (1995–1999) of flight delay data by cleaning missing values, selecting relevant features, and combining multiple yearly datasets into a single analysis-ready dataset.
+
+---
+
+## ✈️ Flight Delay Analysis
+
+#### Flight Delay Heatmap
+
+![Flight Delay Heatmap](Flight-delay.png)
+
+Visualised average departure and arrival delays by hour and weekday using heatmaps to identify temporal delay patterns. Only one example was shown.
+
+---
+
+#### Average Delay by Time of Day
+
+![Average Delay by Hour](Average-Delay-Time.png)
+
+Identified early morning departures (approximately 4:30–5:30 AM) as the period with the lowest average flight delays across the five-year dataset. :contentReference[oaicite:2]{index=2}
+
+---
+
+#### Average Delay by Weekday
+
+![Average Delay by Weekday](Average-Delay-Weekday.png)
+
+Compared average delays across weekdays and found Saturday consistently experienced the lowest overall delays. :contentReference[oaicite:3]{index=3}
+
+---
+
+## 🛫 Aircraft Age Analysis
+
+#### Delay by Aircraft Age Category
+
+![Aircraft Age Analysis](Aircraft-Age.png)
+
+Compared flight delays across aircraft age groups to investigate whether older aircraft experience greater operational delays. :contentReference[oaicite:4]{index=4}
+
+---
+
+#### Two-Way ANOVA Results
+
+![Two-Way ANOVA](Anova.png)
+
+Applied Two-Way ANOVA to evaluate the effects of aircraft age and year on flight delays, confirming both factors significantly influence delay patterns. :contentReference[oaicite:5]{index=5}
+
+---
+
+## 🤖 Logistic Regression
+
+#### Feature Coefficients by Year
+
+![Logistic Regression Coefficients](Regression.png)
+
+Trained yearly logistic regression models to predict flight diversions and analysed feature coefficients to understand how predictor importance evolved over time. :contentReference[oaicite:6]{index=6}
 
 ## 📈 Key Results
 
 - Prepared raw flight delay datasets by converting proprietary BV2 files into analysis-ready CSV files.
 - Identified operational trends and contributing factors associated with flight delays through exploratory data analysis.
 - Produced statistical summaries and visualisations to communicate findings and support business recommendations.
-
----
-
-## 📊 Project Preview
-
-*(Insert visualisations of flight delay trends, airport performance or correlation analysis.)*
 
 ---
 
