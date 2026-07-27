@@ -59,7 +59,21 @@ tidyverse
 
 ## 📊 Project Preview
 
-*(Insert screenshots of clustering plots, regression results and ROC curves.)*
+### 🍷 Unsupervised Learning
+  📷 EDA
+  📷 PCA
+  📷 K-Means
+  📷 Silhouette Analysis
+
+### 🏡 Regression
+  📷 Model Comparison
+  📷 Feature Importance
+  📷 Prediction Performance
+
+### 🫁 Classification
+  📷 ROC Curve
+  📷 Confusion Matrix
+  📷 Final Model Evaluation
 
 ---
 
