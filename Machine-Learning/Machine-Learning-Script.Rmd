@@ -1,0 +1,1997 @@
+---
+title: "ST3189 Machine Learning Coursework"
+author: "Glenda Ho"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Name: Glenda Ho
+
+### Student ID: 230572931
+
+## Install and load all the libraries required.
+
+This section will check and identify if there are any missing library, installs and loads necessary R libraries for various machine learning and data visualization tasks, sets the working directory to access relevant files, and imports three data sets (**WineQT.csv**, **Housing.csv**, and **survey lung cancer.csv** respectively) for learning.
+
+```{r}
+# Load necessary libraries
+libraries <- c("GGally", "ggplot2", "corrplot", "leaps","gridExtra",
+               "car", "tidyverse", "cluster", "gbm", "randomForest","caret","caretEnsemble",
+               "MASS", "dplyr", "vcd", "VIM", "smotefamily", "xgboost", "e1071", "pROC", 
+               "class", "kernlab")
+
+# Use lapply to load each library; install if not already installed
+lapply(libraries,function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE)
+  }
+})
+```
+
+**“dataset”** will be used for Clustering (Unsupervised), **“dataset.2”** will be used for Regression (Supervised), and **“dataset.3”** is used for Classification (Supervised).
+
+```{r}
+# Set the working directory to the specified path
+setwd("~/Downloads/ST3189-Machine Learning/ST3189 Coursework Dataset")
+
+# Read in datasets from specified CSV files
+dataset <- read.csv("WineQT.csv")                      # Load main dataset
+dataset.2 <- read.csv("Housing.csv")                   # Load additional dataset on housing
+dataset.3 <- read.csv("survey lung cancer.csv")        # Load additional dataset on lung cancer
+```
+
+## Start on Unsupervised Learning
+
+Unsupervised learning examines data without predefined labels or outcomes. The goal is to identify patterns, groupings, or structures within the data. Techniques includes clustering (e.g., K-Means, Hierarchical Clustering) and dimensional reduction (e.g., PCA), which help uncover hidden relationships or simplify the data set for better interpretability.
+
+```{r}
+# Display the first few rows of the data set to get an overview
+head(dataset)
+```
+
+```{r}
+# Provide a summary of the data set including basic statistics for each column (e.g., mean, Median, Min and Max)
+summary(dataset)
+```
+
+```{r}
+# Display the structure of the data set including data types of each column
+str(dataset)
+```
+
+```{r}
+# Calculate the number of missing values in each column of the data set and print the results
+missing_values <- colSums(is.na(dataset))
+print(missing_values)
+```
+
+### Data Cleaning
+
+First, I removed any redundant data. Next, a zero-variance check confirmed that all variables exhibited sufficient variability, and no features were removed at this stage.
+
+Following preprocessing, a final inspection of the dataset confirmed that all variables were correctly formatted, scaled where appropriate, and free from missing values. **dataset_final** is the cleaned dataset for unsupervised learning.
+
+```{r}
+# Remove non-informative ID column
+dataset_clean <- dplyr::select(dataset, -Id)
+
+# Check and remove duplicate rows
+dataset_clean <- dataset_clean %>% 
+  distinct()
+
+# Check for zero-variance variables
+zero_variance <- sapply(dataset_clean, function(x) length(unique(x)) == 1)
+zero_variance
+
+dataset_clean <- dataset_clean[, !zero_variance]
+
+# Separate features and target variable
+features <- dplyr::select(dataset_clean, -quality)
+
+quality <- dataset_clean$quality
+
+# Feature scaling (important for clustering & SVM)
+features_scaled <- scale(features)
+
+features_scaled <- as.data.frame(features_scaled)
+
+# Combine scaled features with quality
+dataset_final <- cbind(features_scaled, quality = quality)
+
+# Final inspection
+str(dataset_final)
+summary(dataset_final)
+```
+
+### Exploratory Data Analysis (EDA)
+
+The correlation matrix measures linear relationships between variables. Visualising correlations helps identify strongly related features, potential multicollinearity, and variables that may be influential in modelling. Notable findings include a strong positive association between alcohol and quality, indicating that wines with higher alcohol content tend to receive higher quality ratings. In contrast, volatile acidity shows a moderate negative correlation with quality, suggesting that increased volatile acidity is associated with lower perceived wine quality. These relationships provide a basis for feature selection in clustering, as variables closely related to quality may contribute to the formation of distinct and meaningful clusters that reflect underlying physicochemical differences among wines.
+
+```{r}
+# Correlation Analysis
+cor_matrix <- cor(dataset_final) 
+corrplot(cor_matrix, 
+         method = "color",  
+         type = "upper", 
+         order = "hclust",  
+         tl.col = "black",  
+         tl.cex = 0.6,  
+         number.cex = 0.5,  
+         addCoef.col = "black")  
+```
+
+The scatter plot shows a clear positive linear relationship between alcohol content and wine quality. As alcohol increases, wine quality ratings tend to increase on average, which is confirmed by the upward-sloping regression line. While there is noticeable variability in quality at each alcohol level, the overall trend suggests that alcohol is an important predictor of wine quality. This visual evidence supports the earlier correlation analysis, which indicated a strong positive association between alcohol and quality.
+
+```{r}
+# Relationship between Alcohol and Quality
+ggplot(dataset_final, aes(x = alcohol, y = quality)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "red",
+    formula = y ~ x
+  ) +
+  labs(
+    title = "Relationship Between Alcohol and Wine Quality",
+    x = "Alcohol",
+    y = "Quality"
+  )
+
+```
+
+### Principal Component Analysis (PCA)
+
+Principal Component Analysis (PCA) is applied to the numeric variables in the dataset to reduce dimensionality while retaining as much variability as possible. Prior to PCA, all variables are standardised to ensure equal contribution, as they are measured on different scales. The extent of variance accounted for by each principal component is examined using both a scree plot and a bar plot displaying cumulative variance.
+
+**Scree plot:** From the scree plot, it is evident that the first two to three principal components account for a substantial proportion of the total variance. This observation is further supported by the cumulative variance bar plot, which is included for clearer visual interpretation. Based on these plots, retaining two to three principal components is deemed sufficient to capture the main structure of the data while achieving dimensionality reduction.
+
+**PCA Biplot:** A PCA biplot is then constructed using the first two principal components, revealing that variables such as "alcohol", "sulphates", and acidity-related measures have the strongest influence, as indicated by their longer loading vectors. The direction and proximity of arrows reflect correlations among variables, while the clustering of observations around the origin suggests average values across most wines. Overall, the biplot provides valuable insight into the dataset’s structure and the interrelationships between chemical attributes.
+
+```{r}
+# Set a random seed for reproducibility
+set.seed(123)
+
+# Extract only numeric data from the dataset
+numeric_data <- dataset_final[, sapply(dataset_final, is.numeric)]
+
+# Perform PCA on the numeric data with scaling
+pca_result <- prcomp(numeric_data, scale. = TRUE)
+
+# Summary of PCA results showing importance of components
+summary(pca_result)
+```
+
+```{r}
+# Calculate explained variance for each principal component
+explained_variance <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+# Calculate cumulative variance explained by the components
+cumulative_variance <- cumsum(explained_variance)
+
+# Plot the proportion of variance explained by each component
+plot(explained_variance, type = "b", pch = 19, frame = FALSE,
+     xlab = "Principal Components", ylab = "Proportion of Variance Explained",
+     main = "Scree Plot (Variance Explained)")
+lines(cumulative_variance, col = "red", type = "b", pch = 19)
+legend("topright", legend = c("Proportion", "Cumulative"),
+       col = c("black", "red"), lty = 1, pch = 19)
+```
+
+```{r}
+# Bar plot of explained variance for each principal component
+barplot(explained_variance, names.arg = 1:length(explained_variance),
+        xlab = "Principal Components", ylab = "Proportion of Variance Explained",
+        main = "Explained Variance by Principal Component", col = "steelblue")
+```
+
+```{r}
+# PCA biplot
+biplot(pca_result, scale = 0, main = "Biplot of First Two Principal Components")
+```
+
+### K-means Clustering
+
+K-means clustering is applied using the scores from the first two principal components to classify wines according to their chemical characteristics. Using PCA scores instead of the original variables helps mitigate multicollinearity and improves clustering performance.
+
+**Elbow Plot:** To determine the optimal number of clusters, the Elbow Method is employed by plotting the total within-cluster sum of squares (WSS) against various values of k. The plot shows a noticeable decrease in WSS up to k = 2 or k = 3, after which improvements diminish. This suggests that two to three clusters provide a reasonable balance between model simplicity and explanatory power, and k = 3 is therefore selected for the final clustering.
+
+```{r}
+# Convert PCA results to a data frame for clustering
+pca_data<- as.data.frame(pca_result$x)
+
+# Compute the total within-cluster sum of squares for different numbers of clusters
+wss <- sapply(1:10, function(k) {
+  kmeans_model <- kmeans(
+    pca_data[, 1:2],
+    centers = k,
+    nstart = 25,
+    iter.max = 100
+  )
+  kmeans_model$tot.withinss
+})
+
+# Elbow plot
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE, 
+     xlab = "Number of clusters (k)", ylab = "Total within-cluster sum of squares (WSS)",
+     main = "Elbow Plot for K-means Clustering")
+```
+
+### Silhouette Analysis
+
+At this stage, the objective is to determine the optimal combination of the number of retained principal components and the number of clusters that best define the clustering structure. Silhouette analysis is employed as a quantitative measure of clustering quality, complemented by contextual understanding of the data.
+
+Silhouette analysis is conducted by evaluating a grid of combinations of principal components and cluster numbers. Using **expand.grid**, multiple combinations are generated, and silhouette scores are computed for each. Higher silhouette scores indicate better-defined and more separated clusters. In practical applications, a score above 0.7 is generally regarded as strong structure, while scores between 0.5 and 0.7 are medium structure and scores between 0.25 and 0.5 are weak structure. Scores below 0.25 suggest no structure.
+
+**Heat Map:** A heat map is used to visualise silhouette scores across different combinations of principal components and clusters. Colour intensity highlights regions of higher clustering quality, making it easier to identify optimal parameter choices. The colour scale is centred at a silhouette value of 0.25, corresponding to the threshold between weak and acceptable clustering.
+
+**Line Plot:** Additionally, a line plot is generated to show how silhouette scores vary with the number of clusters for different numbers of principal components, providing further insight into clustering behaviour.
+
+**Scatter Plot:** Based on these visualisations, k-means clustering using two principal components and two clusters is selected as the most appropriate configuration. The resulting cluster assignments are summarised using a frequency table and visualised in a scatter plot. The scatter plot reveals two distinct clusters, cluster 1 (red) is concentrated in the left region and cluster 2 (black) is concentrated in the right region. Referring back to the exploratory data analysis, cluster 1 contains wines with higher alcohol content and lower volatile acidity, corresponding to higher perceived quality. In contrast, cluster 2 consists of wines characterized by lower alcohol levels and higher volatile acidity, which are generally associated with lower quality ratings.
+
+```{r}
+# Create a grid of possible combinations of principal components and clusters to analyze
+results <- expand.grid(n_pcs = 2:5, n_clusters = 2:6)
+
+# Calculate the average silhouette width for each combination
+results$silhouette <- apply(results, 1, function(row) {
+  pcs <- as.integer(row['n_pcs'])
+  clusters <- as.integer(row['n_clusters'])
+  data <- pca_data[, 1:pcs]
+  km <- kmeans(data, centers = clusters, nstart = 25)
+  mean(silhouette(km$cluster, dist(data))[, 'sil_width'])
+})
+
+# Plot heat map to visualise the silhouette scores
+ggplot(results, aes(x = factor(n_pcs), y = factor(n_clusters), fill = silhouette)) +
+  geom_tile() +
+  geom_text(aes(label = round(silhouette, 2)), color = "black", size = 4) +
+  scale_fill_gradient2(low = "red", mid = "yellow", high = "green", midpoint = 0.25) +
+  labs(x = "Number of Principal Components", y = "Number of Clusters", 
+       fill = "Silhouette Width", title = "Silhouette Heatmap") +
+  theme_minimal()
+```
+
+```{r}
+# Initialize an empty data frame to store detailed silhouette scores
+silhouette_scores <- data.frame()
+
+# Calculate silhouette scores for each combination of principal components and clusters
+for (pcs in 2:5) {
+  for (clusters in 2:6) {
+    data <- pca_data[, 1:pcs]
+    km <- kmeans(data, centers = clusters, nstart = 25)
+    sil_width <- mean(silhouette(km$cluster, dist(data))[, 'sil_width'])
+    silhouette_scores <- rbind(silhouette_scores, 
+                               data.frame(PCs = pcs, Clusters = clusters, Silhouette = sil_width))
+  }
+}
+
+# Plot the silhouette scores using ggplot2, showing trends across different cluster and PC counts
+ggplot(silhouette_scores, aes(x = Clusters, y = Silhouette, color = factor(PCs), group = PCs)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Number of Clusters", y = "Silhouette Width", 
+       color = "Number of PCs", title = "Silhouette Scores for PCs and Clusters")
+```
+
+```{r}
+# Perform K-means clustering using 3 clusters and the first 2 principal components
+set.seed(123)
+km_final <- kmeans(pca_data[, 1:2], centers = 2, nstart = 25)
+
+# Display the distribution of data points among the 3 clusters
+table(km_final$cluster)
+```
+
+```{r}
+# visualise the 2 clusters on the first two principal components
+plot(pca_data[, 1:2], col = km_final$cluster, pch = 19,
+     main = "Visualization of 2 Clusters on First 2 PCs")
+```
+
+### Outliers Removal & Re-run Clustering
+
+To assess the impact of outliers on clustering performance, outlier detection is performed using Z-scores. Observations with an absolute Z-score greater than 3 in any variable are identified as potential outliers. These observations are removed to create a reduced dataset.
+
+K-means clustering is then re-applied to the dataset without outliers using the same PCA-based approach. Updated clusters are visualised, and silhouette scores are recalculated to evaluate clustering quality. Cluster assignments differ before and after outlier removal because k-means was re-applied to a reduced dataset; cluster labels are arbitrary and not directly comparable across runs.A silhouette heat map is again generated to examine clustering performance across different combinations of principal components and cluster counts after outlier removal.
+
+Comparing silhouette scores before and after outlier removal reveals only marginal improvements in clustering quality. Consequently, the decision is made to retain the outliers in the final analysis. These extreme observations represent valid cases within the dataset and provide meaningful information rather than noise. Removing them could result in the loss of important insights, particularly when addressing the research objectives.
+
+```{r}
+# Calculate z-scores for PCA data to identify outliers
+z_scores <- scale(pca_data)
+
+# Identify outliers based on z-score greater than 3 in any dimension
+outliers <- which(apply(z_scores, 1, function(row) any(abs(row) > 3)))
+
+# Remove outliers from the PCA data
+pca_data_no_out <- pca_data[-outliers, ]
+
+# Plot the original clusters with potential outliers highlighted
+plot(pca_data[, 1:2], col = km_final$cluster, pch = 19, 
+     main = "Clusters with Potential Outliers")
+points(pca_data[outliers, 1:2], col = "blue", pch = 4, cex = 2)  # Highlight outliers in blue
+```
+
+```{r}
+# Perform k-means clustering on the PCA data without outliers
+kmeans_no_outliers <- kmeans(pca_data_no_out[, 1:2], centers = 2, nstart = 25)
+table(kmeans_no_outliers$cluster)
+
+```
+
+```{r}
+# visualise the clusters after removing outliers
+plot(pca_data_no_out[, 1:2], col = kmeans_no_outliers$cluster, pch = 19, 
+     main = "Clusters After Removing Outliers")
+     
+```
+
+```{r}
+# Calculate and print the average silhouette width for the clustering without outliers
+silhouette_no_outliers <- silhouette(kmeans_no_outliers$cluster, dist(pca_data_no_out[, 1:2]))
+mean(silhouette_no_outliers[, "sil_width"])
+```
+
+```{r}
+# Generate a new grid of results for combinations of principal components and clusters without outliers
+results_no_out <- expand.grid(n_pcs = 2:5, n_clusters = 2:6)
+
+# Calculate the silhouette scores for each combination, this time without outliers
+results_no_out$silhouette <- apply(results_no_out, 1, function(row) {
+  pcs <- as.integer(row['n_pcs'])
+  clusters <- as.integer(row['n_clusters'])
+  data <- pca_data_no_out[, 1:pcs]
+  km <- kmeans(data, centers = clusters, nstart = 25)
+  mean(silhouette(km$cluster, dist(data))[, 'sil_width'])
+})
+
+# Create a heatmap using ggplot2 to visualise the silhouette scores after outlier removal
+ggplot(results_no_out, aes(x = factor(n_pcs), y = factor(n_clusters), fill = silhouette)) +
+  geom_tile() +
+  geom_text(aes(label = round(silhouette, 2)), color = "black", size = 4) +
+  scale_fill_gradient2(low = "red", mid = "yellow", high = "green", midpoint = 0.25) +
+  labs(x = "Number of Principal Components", y = "Number of Clusters", 
+       fill = "Silhouette Width", title = "Silhouette Heatmap After Removing Outliers") +
+  theme_minimal()
+```
+
+### Visualisation of Clusters
+
+**Summary of Clusters:** Cluster 1 contains wines with higher alcohol content and lower volatile acidity, corresponding to higher perceived quality. Cluster 2 consists of wines characterized by lower alcohol levels and higher volatile acidity, which are generally associated with lower quality ratings.
+
+**Box Plot:** Box plots were employed to visualise the distribution of alcohol content, volatile acidity, and sulphates across the identified clusters. These plots highlight differences in central tendency and variability, revealing how specific chemical attributes distinguish each cluster. The usuage of box plots provides a clear and concise comparison of cluster characteristics while reducing the influence of extreme values.
+
+```{r}
+wine_clustered <- as.data.frame(dataset_final) %>%
+  mutate(Cluster = factor(km_final$cluster))
+
+wine_long <- wine_clustered %>%
+  pivot_longer(
+    cols = c(alcohol, volatile.acidity, sulphates),
+    names_to = "Variable",
+    values_to = "Value"
+  )
+
+ggplot(wine_long, aes(x = Cluster, y = Value, fill = Cluster)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~ Variable, scales = "free_y") +
+  labs(
+    title = "Key Wine Characteristics by Cluster",
+    x = "Cluster",
+    y = "Value"
+  ) +
+  theme_minimal()
+
+```
+
+### Hierachical Clustering Analysis(HCA)
+
+Hierarchical Cluster Analysis (HCA) groups observations based on similarity and represents the clustering hierarchy using a dendrogram. The process begins by treating each observation as an individual cluster, which are then progressively merged based on linkage criteria such as nearest distance, furthest distance, or minimum variance. This technique allows analysts to decide the number of clusters by truncating the dendrogram at various levels, providing a flexible and insightful way to explore data relationships.
+
+First, evaluate whether Euclidean or Manhattan distances were more suitable. Euclidean distance was selected because it produced a slightly higher mean silhouette score (0.365 vs. 0.286), indicating better-separated and more well-defined clusters. Additionally, Euclidean distance is appropriate for the standardized, continuous PCA scores used in this analysis.
+
+Next, determine which linkage methods was more suitable. Single linkage and average linkage both produced the highest silhouette score (0.548). Average linkage is chosen because it has the highest cophenetic correlation while producing a dendrogram with balanced, interpretable clusters and no chaining effect.
+
+```{r}
+# Calculate distance matrices for PCA data using Euclidean and Manhattan distances
+dist_euclidean <- dist(pca_data[, 1:2], method = "euclidean")
+dist_manhattan <- dist(pca_data[, 1:2], method = "manhattan")
+
+# Perform hierarchical clustering using Ward's method for both distance matrices
+hclust_euclidean <- hclust(dist_euclidean, method = "ward.D2")
+hclust_manhattan <- hclust(dist_manhattan, method = "ward.D2")
+
+# Calculate silhouette scores for clusters obtained by cutting the dendrograms at k=3
+silhouette_euclidean <- silhouette(cutree(hclust_euclidean, k = 3), dist_euclidean)
+silhouette_manhattan <- silhouette(cutree(hclust_manhattan, k = 3), dist_manhattan)
+
+# Calculate and print mean silhouette scores for both distance measures
+mean(silhouette_euclidean[, "sil_width"])
+```
+
+```{r}
+mean(silhouette_manhattan[, "sil_width"])
+```
+
+```{r}
+# Perform hierarchical clustering using different linkage methods
+hclust_single <- hclust(dist_euclidean, method = "single")
+hclust_complete <- hclust(dist_euclidean, method = "complete")
+hclust_average <- hclust(dist_euclidean, method = "average")
+hclust_ward <- hclust(dist_euclidean, method = "ward.D2")
+
+# Calculate silhouette scores for each linkage method, cutting at k=3
+silhouette_single <- silhouette(cutree(hclust_single, k = 3), dist_euclidean)
+silhouette_complete <- silhouette(cutree(hclust_complete, k = 3), dist_euclidean)
+silhouette_average <- silhouette(cutree(hclust_average, k = 3), dist_euclidean)
+silhouette_ward <- silhouette(cutree(hclust_ward, k = 3), dist_euclidean)
+
+# Print mean silhouette scores for each method
+mean(silhouette_single[, "sil_width"])
+```
+
+```{r}
+mean(silhouette_complete[, "sil_width"])
+```
+
+```{r}
+mean(silhouette_average[, "sil_width"])
+```
+
+```{r}
+mean(silhouette_ward[, "sil_width"])
+```
+
+```{r}
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+
+plot(hclust_single, main = "HCA - Single Linkage", xlab = "", sub = "")
+plot(hclust_complete, main = "HCA - Complete Linkage", xlab = "", sub = "")
+plot(hclust_average, main = "HCA - Average Linkage", xlab = "", sub = "")
+plot(hclust_ward, main = "HCA - Ward's Linkage", xlab = "", sub = "")
+
+par(mfrow = c(1, 1))  # Reset plotting layout
+```
+
+```{r}
+# Plot dendrograms 
+plot(
+  hclust_average,
+  labels = FALSE,
+  hang = -1,
+  main = "Hierarchical Clustering Dendrogram (Euclidean + Average)",
+  xlab = "",
+  sub = ""
+)
+```
+
+```{r}
+# Extract cluster assignments from hierarchical clustering
+clusters_hc <- cutree(hclust_average, k = 3)
+
+# Compare hierarchical cluster assignments with K-means clusters
+mapping_table <- table(clusters_hc, km_final$cluster)
+
+# Remap hierarchical clusters to match the most frequent K-means clusters
+cluster_mapping <- apply(mapping_table, 1, function(row) which.max(row))
+clusters_hc_remapped <- sapply(clusters_hc, function(x) cluster_mapping[x])
+
+# Append remapped cluster assignments to the dataset
+dataset_with_hc_clusters <- dataset_final
+dataset_with_hc_clusters$Cluster <- as.factor(clusters_hc_remapped)
+
+# Print a table of cluster assignments after remapping
+cat("Table of Cluster Assignments after Remapping:\n")
+print(table(dataset_with_hc_clusters$Cluster, km_final$cluster))
+
+```
+
+```{r}
+# Calculate and print mean silhouette score for hierarchical clustering after remapping
+silhouette_hc_remapped <- silhouette(clusters_hc_remapped, dist(dataset_final, method = "manhattan"))
+mean_silhouette_hc_remapped <- mean(silhouette_hc_remapped[, "sil_width"])
+cat("Mean Silhouette Score for HCA (Remapped):", mean_silhouette_hc_remapped, "\n")
+```
+
+## Start on Regression (Supervised Learning)
+
+Regression is a statistical approach used to estimate a target variable determined by one or more independent variables. Various regression techniques exist, each designed to address different data characteristics and analytical objectives. Linear regression shows the relationship between the dependent and independent variables, while polynomial regression extends this framework by introducing polynomial terms to capture non-linear patterns in the data. Ridge and LASSO regression further enhance model performance by incorporating regularization, which helps mitigate overfitting and addresses issues such as multicollinearity and high-dimensional feature spaces. Collectively, these methods serve as essential tools in predictive modeling and statistical analysis.
+
+```{r}
+# Summary statistics for dataset.2
+summary(dataset.2)
+```
+
+```{r}
+# Structure of dataset.2, including data types and number of non-NA values in each column
+str(dataset.2)
+```
+
+```{r}
+# Total number of missing values in dataset.2
+total_missing_values <- sum(is.na(dataset.2))
+print(total_missing_values)
+```
+
+```{r}
+# Number of missing values in each column of dataset.2
+missing_values_per_column <- colSums(is.na(dataset.2))
+print(missing_values_per_column)
+```
+
+### Data Cleaning
+
+Missing values in the dataset were identified and quantified. For numerical variables with missing entries (INDUS, NOX, AGE, RAD, and LSTAT), median imputation was applied to fill the gaps, as the median is robust to extreme values and ensures that outliers do not distort the imputed values.
+
+Additionally, the variable **B**, representing the proportion of Black residents, was excluded from the cleaned dataset due to ethical concerns and its potential to introduce bias, given that it does not reflect an actionable housing feature.
+
+Following preprocessing, a final inspection of the dataset confirmed that all variables were correctly formatted, scaled where appropriate, and free from missing values. **dataset.2_final** is the cleaned dataset for regression.
+
+```{r}
+# Impute missing values for numeric variables using median
+dataset.2 <- dataset.2 %>%
+  mutate(
+    INDUS = ifelse(is.na(INDUS), median(INDUS, na.rm = TRUE), INDUS),
+    NOX   = ifelse(is.na(NOX), median(NOX, na.rm = TRUE), NOX),
+    AGE   = ifelse(is.na(AGE), median(AGE, na.rm = TRUE), AGE),
+    RAD   = ifelse(is.na(RAD), median(RAD, na.rm = TRUE), RAD),
+    LSTAT = ifelse(is.na(LSTAT), median(LSTAT, na.rm = TRUE), LSTAT)
+  )
+
+# Verify no missing values remain
+colSums(is.na(dataset.2))
+```
+
+```{r}
+# Exclude 'B' variable due to ethical considerations
+dataset.2_final <- dplyr::select(dataset.2, -B)
+
+# Final inspection
+str(dataset.2_final)
+summary(dataset.2_final)
+```
+
+### Exploratory Data Analysis (EDA)
+
+The histogram displays the distribution of median house values (MEDV) in the dataset, providing an overview of how home prices are spread across different value ranges. It visualises the frequency of houses falling into each price band, allowing us to identify common price levels as well as unusual or extreme values. The distribution is moderately right-skewed, with a long tail extending toward higher values. It shows there are many low–mid priced homes, but a few houses are much more expensive, which stretches the distribution to the right.
+
+The correlation matrix offers a concise summary of the linear relationships between the variables in the dataset and serves as an important exploratory tool for identifying patterns, dependencies, and potential multicollinearity prior to further analysis. From the matrix, several strong associations are evident. The MEDV shows a strong positive correlation with the average number of rooms (RM) and a strong negative correlation with the proportion of lower-status population (LSTAT).The MEDV also shows a moderate negative correlation with the pupil-teacher ratio by town (PTRATIO). Environmental and urban factors such as nitric oxide concentration (NOX) exhibit notable negative relationships with MEDV. Overall, the matrix helps identify key variables that guide subsequent modelling decisions.
+
+The scatterplots, using only the key variables identified from the correlation matrix, reveal distinct relationships between the predictors and median house prices. LSTAT shows a strong negative relationship with MEDV, suggesting that areas with a greater proportion of lower-income residents tend to have significantly lower house prices. NOX also displays a negative association, suggesting that neighbourhoods with higher air pollution levels generally experience reduced property values. PTRATIO exhibits a moderately negative trend, implying that higher student–teacher ratios (indicating poorer school resources) are linked to lower house prices. In contrast, RM shows a clear positive relationship with MEDV, meaning that homes with more rooms are typically situated in higher-valued areas. Overall, the strongest predictors appear to be LSTAT (negative) and RM (positive), both showing clearer linear patterns than \*NOX and PTRATIO.
+
+```{r}
+# visualise distribution of the target variable (MEDV)
+ggplot(dataset.2_final, aes(x = MEDV)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Median House Values",
+       x = "Median Value of Homes (MEDV)",
+       y = "Frequency")
+```
+
+```{r}
+# Correlation analysis: Examines linear relationships between predictors and MEDV
+cor_matrix.2 <- cor(dataset.2_final)
+corrplot(cor_matrix.2,  
+         method = "color",  # Color tiles based on correlation values
+         type = "upper",  # Display only the upper half of the matrix
+         order = "hclust",  # Order variables based on hierarchical clustering
+         tl.col = "black",  # Set text label color
+         tl.cex = 0.6,  # Set text label font size
+         number.cex = 0.5,  # Set font size for correlation coefficients
+         addCoef.col = "black")  # Set color for correlation coefficients
+```
+
+```{r}
+# Select key predictors and reshape data to long format
+# These variables were chosen due to their strong or moderate association with housing prices
+long_key_var <- dplyr::select(dataset.2_final, MEDV, RM, LSTAT, PTRATIO, NOX) %>%
+  pivot_longer(
+    cols = -MEDV,
+    names_to = "Variable",
+    values_to = "Value"
+  )
+
+# Create faceted scatter plots
+# Each panel represents one predictor plotted against MEDV
+ggplot(long_key_var, aes(x = Value, y = MEDV)) +
+  geom_point(alpha = 0.6) +
+  suppressMessages(
+    geom_smooth(method = "lm", se = FALSE, formula = y ~ x)
+  ) +
+  facet_wrap(~ Variable, scales = "free_x") +
+  labs(
+    title = "Targeted Scatter Plots of Key Predictors Against House Prices",
+    x = "Predictor Value",
+    y = "Median House Value (MEDV)"
+  )
+```
+
+### Stepwise Regression
+
+The Variance Inflation Factor (VIF) was computed to assess multicollinearity among the predictor variables. Multicollinearity arises when predictor variables are highly correlated, which can distort regression coefficient estimates. High VIF values indicate that a predictor does not provide unique information to the model, making it difficult to determine its true effect on the response variable. By identifying variables with elevated VIF values, we can decide whether to remove, combine, or transform them to enhance the stability, accuracy, and interpretability of the regression model.
+
+Stepwise regression was performed to determine the most influential predictors of housing prices while avoiding unnecessary complexity. Using both forward and backward selection based on the Akaike Information Criterion (AIC), the procedure iteratively added or removed variables to produce a more efficient model. This approach highlights the key predictors that most strongly influence MEDV, helping streamline the subsequent modelling process. Lower AIC values indicate a preferable model, reflecting a better balance between model fit and complexity.
+
+The regression coefficients quantify the effect of each predictor on MEDV, with standard errors indicating estimation precision. Significance Codes like \*\*\* denote the significance level of the coefficients. Typically, \*\*\* indicates a highly significant predictor (p \< 0.001). The residual standard error (4.789) suggests a good model fit, while the high F-statistic (137, p \< 2.2e−16) confirms that the model is statistically significant overall. An adjusted R² of 0.728 implies that the model explains a substantial proportion of variability in MEDV.
+
+Key predictors such as RM (positive) and LSTAT, NOX, PTRATIO(negative) demonstrate that housing size, socioeconomic status, environmental quality, and neighbourhood characteristics are major determinants of housing value. VIF diagnostics indicate low to moderate multicollinearity, with most values below 5. Although RAD and TAX exhibit higher VIF values (≈7–9), they remain below critical thresholds, suggesting multicollinearity does not materially affect model reliability and defined(Investopedia, 2010).
+
+```{r}
+# Fit a full model using all predictors
+full_model <- lm(MEDV ~ ., data = dataset.2_final)
+
+# Calculate VIF values for the full model
+vif_values <- vif(full_model)
+
+# Print VIF values
+vif_values
+```
+
+```{r}
+# Perform stepwise selection based on Akaike Information Criterion (AIC)
+# direction = "both" allows both forward and backward selection
+stepwise_model <- stepAIC(full_model, direction = "both", trace = TRUE)
+```
+
+```{r}
+# Display the summary of the stepwise selected model
+summary(stepwise_model)
+```
+
+### Residual Analysis
+
+Residual diagnostics were conducted on the stepwise regression model to evaluate model stability and detect potential issues before comparing it against ensemble methods. Cook’s distance was computed to identify influential observations, but no data points exceeded the threshold of 0.5, suggesting that the model was not unduly affected by outliers. Standard diagnostic plots were then generated to visually assess model assumptions. The Residuals vs Fitted and Scale–Location plots show a mild increase in residual spread at higher fitted values, indicating slight heteroscedasticity, while the Normal Q–Q plot suggests small deviations from normality at the tails. The Residuals vs Leverage plot reveals no extreme leveragepoints. VIF values were also calculated, with all predictors displaying VIF \< 5, confirming the absence of serious multicollinearity after stepwise selection. Overall, the diagnostics indicate that the linear model is reasonably stable, though its performance limitations justify the subsequent use of ensemble and gradient boosting models.
+
+```{r}
+# Cook’s Distance
+cooks_d <- cooks.distance(stepwise_model)
+influential_points <- which(cooks_d > 0.5)
+cat("Influential Points:\n")
+print(influential_points)
+```
+
+```{r}
+# Diagnostic Plots
+par(mfrow = c(2, 2))
+plot(stepwise_model)
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# VIF for multicollinearity
+vif_stepwise <- vif(stepwise_model)
+cat("VIF values after stepwise:\n")
+print(vif_stepwise)
+```
+
+### Regression
+
+**Variable Selection:** Predictor variables were first selected using stepwise regression to identify a parsimonious subset of features that exhibit significant explanatory power for the median house value (MEDV). This reduced model complexity while retaining key predictors strongly associated with housing prices.
+
+**Cross-Validation Framework:** A 10-fold cross-validation strategy was applied consistently across all models to ensure reliable performance estimation and fair comparison. This approach also allowed variability in prediction error to be assessed across resampling folds.
+
+**Linear Regression:** A baseline linear regression model was trained to capture linear associations between the selected predictors and MEDV. While interpretable, its relatively higher RMSE indicates limited ability to model complex housing price dynamics.
+
+**Polynomial Regression:** Polynomial regression was used to introduce nonlinearity into the modeling process, improving predictive performance over the linear model, though with increased variability across folds.
+
+**Ridge Regression:** Ridge regression applies L2 regularization to improve the stability of coefficient estimates under multicollinearity. Its performance is comparable to LASSO, but with slightly higher RMSE variability, suggesting moderate sensitivity to correlated predictors.
+
+**LASSO Regression:** LASSO regression employs L1 regularization to perform both coefficient shrinkage and variable selection. Although effective in simplifying the model, its RMSE remains higher than that of the Random Forest, indicating some loss of predictive flexibility.
+
+**Random Forest:** The Random Forest model demonstrated the most effective predictive performance, attaining the lowest median RMSE and the smallest spread across cross-validation folds. This indicates both high accuracy and stability, reflecting its ability to capture nonlinear relationships and interaction effects.
+
+**Model Comparison:** RMSE was used as the primary evaluation metric for model comparison. The box-and-whisker plot clearly shows Random Forest outperforming all other models, with substantially lower prediction error and reduced variability.
+
+**Random Forest Feature Importance:** Feature importance analysis revealed that RM and LSTAT are the most influential predictors of MEDV. Other variables such as DIS, NOX, and PTRATIO also contribute meaningfully, highlighting the combined impact of housing characteristics, environmental quality, and socio-economic factors.
+
+```{r}
+# Retrieve variable names from the step wise selected model, excluding the intercept
+selected_vars <- names(coef(stepwise_model))[-1]
+print(selected_vars)
+```
+
+```{r}
+# Ensure only variables present in the data set are selected
+selected_vars <- selected_vars[selected_vars %in% colnames(dataset.2)]
+
+# Subset the data set to include only the selected variables plus the response variable
+dataset_stepwise <- dataset.2 %>% 
+  dplyr::select(dplyr::all_of(selected_vars), MEDV)
+
+# Display the structure of the step wise data set
+str(dataset_stepwise)
+```
+
+```{r}
+# Set up cross-validation control for model training
+train_control <- trainControl(method = "cv", number = 10)
+
+# Train a linear model using cross-validation
+linear_cv <- train(
+  MEDV ~ ., 
+  data = dataset_stepwise, 
+  method = "lm", 
+  trControl = train_control
+)
+print(linear_cv)
+```
+
+```{r}
+# Train a polynomial regression model using cross-validation
+poly_cv <- train(
+  MEDV ~ poly(RM, 2, raw = TRUE) + poly(LSTAT, 2, raw = TRUE) +
+           CRIM + NOX + PTRATIO + DIS + RAD + TAX + CHAS,
+  data = dataset_stepwise,
+  method = "lm",
+  trControl = train_control
+)
+
+# View model results
+print(poly_cv)
+```
+
+```{r}
+# Train ridge regression model
+ridge_cv <- train(
+  MEDV ~ .,
+  data = dataset_stepwise,
+  method = "glmnet",
+  trControl = train_control,
+  tuneGrid = expand.grid(alpha = 0, lambda = seq(0.001, 1, length = 10)),
+  preProcess = c("center", "scale")  # important for ridge
+)
+
+# View model results
+print(ridge_cv)
+```
+
+```{r}
+# Train LASSO model
+lasso_cv <- suppressWarnings(
+  train(
+    MEDV ~ .,
+    data = dataset_stepwise,
+    method = "glmnet",
+    trControl = train_control,
+    tuneGrid = expand.grid(alpha = 1,lambda = 10^seq(-3, 1, length = 50)),
+    preProcess = c("center", "scale")
+  )
+)
+# Warnings arising from extreme regularisation values during cross-validation were suppressed after verifying that the selected optimal model exhibited valid performance metrics.
+lasso_cv$results[lasso_cv$results$lambda == lasso_cv$bestTune$lambda, ]
+```
+
+```{r}
+print(lasso_cv)
+```
+
+```{r}
+# Train Random Forest model
+rf_cv <- train(
+  MEDV ~ .,
+  data = dataset_stepwise,
+  method = "rf",
+  trControl = train_control,
+  tuneLength = 5,        # tunes mtry
+  ntree = 500,
+  importance = TRUE
+)
+
+print(rf_cv)
+```
+
+```{r}
+# Collect resampling results
+resamples_list <- resamples(list(
+  Linear = linear_cv,
+  Polynomial = poly_cv,
+  Ridge = ridge_cv,
+  LASSO = lasso_cv,
+  RandomForest = rf_cv
+))
+
+# Summary of model performance
+summary(resamples_list)
+
+```
+
+```{r}
+# Plot box-whisker plots for the RMSE of each model
+bwplot(
+  resamples_list,
+  metric = "RMSE",
+  main = "Comparison of RMSE Across Models"
+)
+```
+
+```{r}
+# Train a final Random Forest model for feature importance
+rf_model <- randomForest(
+  MEDV ~ ., 
+  data = dataset_stepwise, 
+  importance = TRUE
+)
+
+# Get importance scores from the Random Forest model
+importance_rf <- importance(rf_model)
+print(importance_rf)
+```
+
+```{r}
+# Plot variable importance from the Random Forest
+varImpPlot(rf_model, main = "Feature Importance from Random Forest")
+```
+
+### Ensemble
+
+I applied a stacking ensemble technique to improve predictive accuracy by combining multiple models. Stacking works by training several different base learners and then using a meta-model to integrate their predictions. In this analysis, linear regression, random forest, and elastic net were selected as the base models, as they capture different structures and patterns in the data. A generalized linear model (GLM) was then used as the meta-learner to combine these base model predictions into a single, optimized ensemble output.
+
+The ensemble was trained using 10-fold cross-validation, with predictions stored for stacking and *RMSE* was set as the primary evaluation metric. The base models were trained using the caretList function, and their outputs were combined using caretStack, enabling the ensemble to leverage the strengths of each algorithm. This approach aims to reduce individual model weaknesses and improve overall predictive performance. The final stacked model’s RMSE provides a concise summary of its effectiveness relative to the standalone models.
+
+```{r}
+# Set up cross-validation control for ensemble training with settings to save final model predictions
+train_control_ensemble <- trainControl(
+  method = "cv",           
+  number = 10,             
+  savePredictions = "final",  
+  classProbs = FALSE       
+)
+
+# Create a list of models using caretList. The models include linear regression (lm), random forest (rf), and elastic net (glmnet)
+models <- caretList(
+  MEDV ~ .,    
+  data = dataset_stepwise,  
+  trControl = train_control_ensemble,  
+  methodList = c("lm", "rf", "glmnet")  
+)
+
+# Stack the models using caretStack. The base models are combined using a general linear model (glm) as the meta-model to aggregate the predictions
+stacked_model <- caretStack(
+  models,                 
+  method = "glm",         
+  metric = "RMSE",        
+  trControl = train_control_ensemble  
+)
+
+# Print the summary of the stacked model to review its performance and details
+print(stacked_model)
+```
+
+### Gradient Boosting
+
+The script trains a Gradient Boosting Machine (GBM) and compares its performance with previously fitted linear, polynomial, ridge, lasso, and random forest models using cross-validated resampling statistics.
+
+The GBM was trained using cross-validation to evaluate how different combinations of tree depth and number of trees affect predictive performance. As the tuning results show, increasing both **n.trees** and **interaction.depth** generally leads to lower RMSE and higher R², indicating improved model fit. Performance improves consistently from shallow trees (depth = 1) to deeper, more complex trees (depth = 5). The best results are observed at an interaction depth of 5 and 250 trees, where the model achieves its lowest RMSE (3.13) and one of the highest R² values (0.877). This suggests that a moderately large ensemble with deeper trees captures important nonlinear relationships and interactions in the data without evidence of overfitting, as mean absolute error (MAE) also steadily decreases across deeper models. These tuning results guided the selection of the final model parameters: **n.trees** = 250, **interaction.depth** = 5, **shrinkage** = 0.1, and **n.minobsinnode** = 10.
+
+A RMSE box-and-whisker plot is generated using bwplot to visually compare the distribution of RMSE scores across all models. This visualization aids in quickly identifying which models are performing better or worse relative to others.The RMSE box-and-whisker plot indicates that Gradient Boosting and Random Forest achieve the lowest RMSE values with relatively compact interquartile ranges, suggesting both high predictive accuracy and stable performance across resamples. In contrast, linear, ridge, and lasso models exhibit higher RMSE distributions and greater variability, while the polynomial model shows moderate improvement but remains inferior to ensemble methods. Overall, the visualization confirms that ensemble-based approaches outperform traditional regression models in capturing complex relationships within the data.
+
+```{r}
+# Train Gradient Boosting Machine (GBM) model
+gbm_model <- train(
+  MEDV ~ .,
+  data = dataset_stepwise,
+  method = "gbm",
+  trControl = train_control,
+  verbose = FALSE,        
+  tuneLength = 5         
+)
+
+print(gbm_model)
+```
+
+```{r}
+# Collect and compare results using re sampling statistics from multiple models
+results.gbm <- resamples(list(
+  Linear = linear_cv,           
+  Polynomial = poly_cv,        
+  Ridge = ridge_cv,            
+  Lasso = lasso_cv,          
+  RandomForest = rf_cv,         
+  GradientBoosting = gbm_model  
+))
+
+# Print summary of re sampling results to compare models
+summary(results.gbm)
+```
+
+```{r}
+# Create a box and whisker plot to compare the Root Mean Square Error (RMSE) across all models
+bwplot(results.gbm, metric = "RMSE", main = "Comparison of RMSE Across Models")
+```
+
+### Tuning
+
+Model tuning was conducted to further enhance the predictive performance of the Random Forest and Gradient Boosting models.
+
+For the Random Forest, tuning the mtry parameter revealed that model performance improved as more predictors were considered at each split, with the lowest RMSE (3.07) achieved at mtry = 6. This indicates that moderately increasing the feature subset size strengthens the model’s ability to catch patterns without introducing instability.
+
+Gradient Boosting underwent more extensive tuning across shrinkage values, interaction depths, and number of trees. The results showed consistent performance gains with deeper trees and more boosting iterations, particularly at a shrinkage rate of 0.1. The optimal configuration—200 trees, interaction depth of 5, and shrinkage of 0.1—yielded the lowest RMSE (2.97), reflecting an effective balance between model complexity and learning rate. Overall, the tuning process allowed both models to reach significantly improved accuracy, with RMSE serving as the primary criterion guiding parameter selection.
+
+```{r}
+# Tune a Random Forest model by varying the 'mtry' parameter
+rf_tuned <- train(
+  MEDV ~ ., 
+  data = dataset_stepwise, 
+  method = "rf", 
+  tuneGrid = expand.grid(mtry = c(2, 4, 6, 8, 10)), 
+  trControl = trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+)
+
+# Print the results of the tuned Random Forest model
+print(rf_tuned)
+```
+
+```{r}
+#Plot the results of the tuned Random Forest model
+plot(rf_tuned)
+```
+
+```{r}
+# Tune a Gradient Boosting Model with a comprehensive grid of parameters
+gbm_tuned <- train(
+  MEDV ~ ., 
+  data = dataset_stepwise, 
+  method = "gbm", 
+  tuneGrid = expand.grid(
+    n.trees = c(100, 200, 300), 
+    interaction.depth = c(1, 3, 5), 
+    shrinkage = c(0.01, 0.1, 0.3), 
+    n.minobsinnode = 10
+  ),
+  trControl = trainControl(method = "cv", number = 10),  # 10-fold cross-validation
+  verbose = FALSE
+)
+
+# Print the results of the tuned GBM model
+print(gbm_tuned)
+```
+
+```{r}
+#Plot the results of the tuned GBM model
+plot(gbm_tuned)
+```
+
+### Summary of Regression
+
+After compiling a list of predictive models(including Linear, Polynomial, Ridge, Lasso, Random Forest, Gradient Boosting, and an Ensemble model[stacked model]), I generated predictions for each models using the dataset and produceD corresponding Actual vs. Predicted scatter plots. These plots include a diagonal reference line (y = x), which visually indicates how closely each model’s predictions align with the true values.
+
+Next, for every model, three key performance metrics are calculated: RMSE, which captures overall prediction error; R², which reflects how much variance in the outcome is explained; and MAE, which measures the mean size of prediction errors. These metrics are consolidated into a table to facilitate comparison.
+
+Then, a bar plot is then created to visualise RMSE across models, with each bar annotated using RMSE, R², and MAE values, enabling a clear and immediate performance comparison. The results show that the regression-based models (Linear, Polynomial, Ridge, and Lasso) perform moderately, with RMSE values ranging from approximately 4.0 to 4.8 and R² values between 0.73 and 0.81, indicating limited capacity to capture complex relationships within data. Random Forest delivers substantially stronger performance, achieving a low RMSE of 1.39, high R² of 0.98, and a low MAE of 0.96, demonstrating its effectiveness in modeling non-linear patterns. Gradient Boosting also performs well (RMSE = 1.75, R² = 0.96, MAE = 1.28) but does not surpass Random Forest in accuracy. The Ensemble model provides the overall best-performing performance, with the lowest RMSE of 1.30, the highest R² of 0.98, and the lowest MAE of 0.89, indicating that combining multiple predictive approaches enhances accuracy and robustness.
+
+```{r}
+# Models list
+models <- list(
+  Linear = linear_cv,
+  Polynomial = poly_cv,
+  Ridge = ridge_cv,
+  Lasso = lasso_cv,
+  RandomForest = rf_tuned,
+  GradientBoosting = gbm_tuned,
+  Ensemble = stacked_model
+)
+```
+
+```{r}
+# Initialize an empty list to store the plots for each model
+plots <- list()
+
+# Loop through each model to generate predictions and corresponding plots
+for (model_name in names(models)) {
+  # Get the actual life expectancy values from the dataset
+  actual <- dataset.2_final$MEDV
+  
+  # Generate predictions based on the type of model
+  if (model_name == "Polynomial") {
+    # Special case for polynomial regression
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final)
+  } else if (inherits(models[[model_name]], "train")) {
+    # For caret-trained models
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final)
+  } else if (inherits(models[[model_name]], "gbm")) {
+    # For GBM models, specify the number of trees
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final, n.trees = models[[model_name]]$n.trees)
+  } else if (is.list(predict(models[[model_name]], newdata = dataset.2_final))) {
+    # Handle cases where the prediction is returned as a list
+    predictions <- unlist(predict(models[[model_name]], newdata = dataset.2_final))
+  } else {
+    # Default case for other model types
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final)
+  }
+  
+  # Ensure predictions are numeric for consistency
+  predictions <- as.numeric(predictions)
+  
+  # Create a scatter plot comparing actual vs predicted values
+  plot <- ggplot(data.frame(Actual = actual, Predicted = predictions), aes(x = Actual, y = Predicted)) +
+    geom_point(color = "blue") +  # Points in blue
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +  # Reference line (y=x)
+    labs(
+      title = paste(model_name, ": Actual vs Predicted"),  # Title with model name
+      x = "Actual",  # X-axis label
+      y = "Predicted"  # Y-axis label
+    ) +
+    theme_minimal()  # Minimal theme for clean visuals
+  
+  # Add the plot to the list of plots
+  plots[[model_name]] <- plot
+}
+
+# Arrange all plots in a grid with 3 columns
+grid.arrange(grobs = plots, ncol = 3)
+```
+
+```{r}
+# Initialize a data frame to store RMSE, R², and MAE for each model
+results_summary <- data.frame(Model = character(), RMSE = numeric(), R2 = numeric(), MAE = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each model to calculate performance metrics
+for (model_name in names(models)) {
+  # Get the actual MEDV values
+  actual <- dataset.2_final$MEDV
+  
+  # Generate predictions for each model
+  if (model_name == "Polynomial") {
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final)
+  } else if (inherits(models[[model_name]], "train")) {
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final)
+  } else if (inherits(models[[model_name]], "gbm")) {
+    predictions <- predict(models[[model_name]], newdata = dataset.2_final, n.trees = models[[model_name]]$n.trees)
+  } else if (is.list(predict(models[[model_name]], newdata = dataset.2_final))) {
+    predictions <- unlist(predict(models[[model_name]], newdata = dataset.2_final))
+  } else {
+    predictions <- predict(models[[model_name]], newdata = dataset.2)
+  }
+  
+  # Ensure predictions are numeric
+  predictions <- as.numeric(predictions)
+  
+  # Calculate performance metrics: RMSE, R², and MAE
+  rmse <- sqrt(mean((actual - predictions)^2))
+  r2 <- 1 - sum((actual - predictions)^2) / sum((actual - mean(actual))^2)
+  mae <- mean(abs(actual - predictions))
+  
+  # Append metrics to the results summary data frame
+  results_summary <- rbind(results_summary, data.frame(Model = model_name, RMSE = rmse, R2 = r2, MAE = mae))
+}
+
+# Print the results summary to view metrics for all models
+print(results_summary)
+```
+
+```{r}
+# Add a label column for better visualization in the plot
+results_summary$Label <- paste0(
+  "RMSE: ", round(results_summary$RMSE, 3), "\n",
+  "R²: ", round(results_summary$R2, 3), "\n",
+  "MAE: ", round(results_summary$MAE, 3)
+)
+
+# Create a bar plot to visualise RMSE for each model
+ggplot(results_summary, aes(x = Model, y = RMSE, fill = Model)) +
+  geom_bar(stat = "identity", position = "dodge") +  
+  geom_text(aes(label = Label, y = RMSE + 0.5), size = 3, vjust = 0.5, hjust = 0.5) +  
+  labs(
+    title = "Model Performance Metrics with RMSE, R², and MAE",  
+    x = "Model", 
+    y = "RMSE"  
+  ) +
+  theme_minimal() +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    plot.margin = unit(c(1, 1, 1, 1), "cm")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2)))+
+   theme(legend.position = "none")
+```
+
+## Start on Classicfication (Supervised Learning)
+
+Classification is a supervised learning approach in machine learning that aims to predict categorical class labels of new instances based on historical data. In the context of this lung cancer dataset, the goal is to predict whether a patient has lung cancer (LUNG_CANCER) based on various risk factors and health indicators such as smoking habits, chronic diseases, fatigue, and other binary predictors. The model learns patterns from a training set of patient data, relating input variables to the target class, and then predicts the class labels for unseen patients. Common classification techniques suitable for this dataset include logistic regression, decision trees, random forest, support vector machines, and gradient boosting. Model performance is evaluated using metrics like accuracy, F1-score, and Area Under the Receiver Operating Characteristic Curve (AUC-ROC) to ensure reliable predictions.
+
+The dataset contains 309 patient records and 16 variables, including demographic information (e.g., AGE, GENDER) and health-related binary predictors (e.g., SMOKING, FATIGUE, CHEST_PAIN).
+
+Visualisation of missing data was done. Missing data is displayed with yellow, while navy blue represents observed values. The plot includes the percentage of missing data and patterns for better analysis and potential imputation strategies. After inspection, there are no missing data.
+
+```{r}
+# Displaying the structure of the 'dataset.3'
+str(dataset.3)
+```
+
+```{r}
+# Generating summary statistics for 'dataset.3'
+summary(dataset.3)
+```
+
+```{r}
+# Visualizing missing data patterns in 'dataset.3'
+aggr(dataset.3, col = c('navyblue', 'yellow'), numbers = TRUE, sortVars = TRUE, 
+     labels = names(dataset.3), cex.axis = 0.7, gap = 3, ylab = c("Missing data", "Pattern"))
+
+```
+
+### Data Cleaning
+
+To ensure appropriate handling of categorical variables in statistical analyses and machine learning models, selected columns in the dataset were converted to factors. Specifically, the target variable, "LUNG_CANCER", was transformed into a factor to indicate the presence or absence of the disease. Binary predictor variables, originally coded as 1 (No) and 2 (Yes), were also converted to factors to correctly represent their categorical nature. The "GENDER" variable was also re-coded as a factor, while "AGE" was retained as a numeric variable for analysis. After preprocessing, **dataset.3_final** is the cleaned dataset for classification.
+
+```{r}
+# Convert Target Variable 'LUNG_CANCER' to Factor
+dataset.3$LUNG_CANCER <- factor(dataset.3$LUNG_CANCER,
+                                  levels = c("NO", "YES"))
+
+# List of binary predictor columns
+binary_cols <- c(
+  "SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE",
+  "CHRONIC.DISEASE", "FATIGUE", "ALLERGY", "WHEEZING",
+  "ALCOHOL.CONSUMING", "COUGHING",
+  "SHORTNESS.OF.BREATH", "SWALLOWING.DIFFICULTY", "CHEST.PAIN"
+)
+
+
+# Convert binary predictors to factors (1 → No, 2 → Yes)
+for (col in binary_cols) {
+  dataset.3[[col]] <- factor(
+    dataset.3[[col]],
+    levels = c(1, 2),
+    labels = c("No", "Yes")
+  )
+}
+
+# 'Age' stays numeric, 'Gender' change to a factor
+dataset.3$GENDER <- factor(dataset.3$GENDER)
+
+# Create the final cleaned dataset
+dataset.3_final <- dataset.3
+```
+
+```{r}
+# Inspect cleaned data
+str(dataset.3_final)
+```
+
+```{r}
+summary(dataset.3_final)
+```
+
+### Explanatory Data Analysis
+
+**Bar Plot Visualization:** A bar plot was created to visualize the overall distribution of lung cancer cases within the dataset, providing a quick overview of class balance between “Yes” and “No” outcomes.
+
+Separate bar plots were generated for each binary predictor against "LUNG_CANCER" to examine the proportion of lung cancer cases across various levels of each predictor. This helps to identify predictors that are potentially strongly associated with the target variable.
+
+**Chi-Square Test Function:** A function was implemented to iterate over all categorical predictors and calculate chi-square statistics against the target variable, "LUNG_CANCER". This statistical test assesses whether the observed distribution of lung cancer cases is independent of each categorical predictor. Results were compiled into a summary table and sorted by p-value to identify significant relationships. Variables such as ALLERGY, ALCOHOL.CONSUMING, SWALLOWING.DIFFICULTY, WHEEZING, and COUGHING demonstrated statistically significant associations with lung cancer (p \< 0.05), indicating that these factors may play a meaningful role in predicting disease presence.
+
+**Multicollinearity Assessment:** To evaluate multicollinearity among the predictor variables, a logistic regression model was fitted with "LUNG_CANCER" as the target variable and all binary predictors, age, and gender as independent variables. Variance Inflation Factor (VIF) values were then computed for each predictor to quantify the degree of multicollinearity. All predictors exhibited VIF values well below commonly used thresholds (VIF \< 5), indicating minimal collinearity and confirming that the variables contribute independent information. This ensures that the predictors are suitable for further modeling, and that coefficient estimates will remain stable and interpretable.
+
+```{r}
+# Create a bar plot to visualise distribution of Lung Cancer Cases
+ggplot(dataset.3_final, aes(x = LUNG_CANCER)) +
+  geom_bar() +
+  labs(
+    title = "Distribution of Lung Cancer Cases",
+    x = "Lung Cancer Status",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Reshape data to long format for plotting proportion of Lung Cancer by Binary Predictors
+dataset.3_long <- dataset.3_final %>%
+  dplyr::select(dplyr::all_of(binary_cols), "LUNG_CANCER") %>%
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(binary_cols),
+    names_to = "Predictor",
+    values_to = "Value"
+  )
+
+# Create a bar plot to visualise
+ggplot(dataset.3_long, aes(x = Value, fill = LUNG_CANCER)) +
+  geom_bar(position = "fill") +
+  facet_wrap(~ Predictor, scales = "free_x") +
+  labs(
+    y = "Proportion",
+    x = "Binary Value",
+    title = "Proportion of Lung Cancer by Binary Predictors"
+  ) +
+  scale_fill_manual(values = c("skyblue", "salmon")) +
+  theme_minimal()
+```
+
+```{r}
+# Define a function to calculate the chi-square statistics for categorical predictors
+chi_square_results <- function(data, target) {
+  results <- data.frame(
+    Variable = character(),
+    Chi_Square = numeric(),
+    p_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (var in names(data)) {
+    if (is.factor(data[[var]]) && var != target) {
+      
+      tbl <- table(data[[var]], data[[target]])
+      
+      # Skip invalid tables
+      if (all(dim(tbl) > 1)) {
+        test <- chisq.test(tbl)
+        
+        results <- rbind(
+          results,
+          data.frame(
+            Variable = var,
+            Chi_Square = test$statistic,
+            p_value = test$p.value
+          )
+        )
+      }
+    }
+  }
+  
+  return(results)
+}
+
+# Apply the Function to Your Clean Dataset
+chi_sq_table <- chi_square_results(dataset.3_final, "LUNG_CANCER")
+
+# Sort by significance
+chi_sq_table <- chi_sq_table[order(chi_sq_table$p_value), ]
+
+print(chi_sq_table)
+```
+
+```{r}
+# Fit Logistic Regression Model
+logit_model <- glm(
+  LUNG_CANCER ~ AGE + GENDER + SMOKING + YELLOW_FINGERS + ANXIETY +
+    PEER_PRESSURE + CHRONIC.DISEASE + FATIGUE + ALLERGY + WHEEZING +
+    ALCOHOL.CONSUMING + COUGHING + SHORTNESS.OF.BREATH +
+    SWALLOWING.DIFFICULTY + CHEST.PAIN,
+  data = dataset.3_final,
+  family = binomial
+)
+
+# Check multicollinearity with Variance Inflation Factor (VIF)
+vif_values.3 <- vif(logit_model)
+sort(vif_values.3, decreasing = TRUE)
+```
+
+### Encoding
+
+**Binary Encoding of Categorical Variables:** A copy of the original dataset was first created to preserve the raw data. Binary categorical predictors were encoded into numeric format by mapping Yes to 1 and No to 0. This conversion ensures compatibility with machine learning algorithms that require numerical inputs while preserving the original binary meaning of each variable.
+
+**Gender Encoding:** The gender variable was transformed into a binary numeric representation, with Male encoded as 1 and Female encoded as 0, allowing it to be used directly in predictive modeling.
+
+**Target Variable Encoding:** The target variable, LUNG_CANCER, was converted from a categorical format into a numeric binary variable (YES = 1, NO = 0). This encoding is particularly important for resampling techniques such as SMOTE and for training classification models that require numeric target values.
+
+```{r}
+# Make a copy of the dataset
+encoded_data <- dataset.3_final  
+
+# Encode binary predictors (YES → 1, NO → 0)
+binary_cols <- c(
+  "SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE",
+  "CHRONIC.DISEASE", "FATIGUE", "ALLERGY", "WHEEZING",
+  "ALCOHOL.CONSUMING", "COUGHING",
+  "SHORTNESS.OF.BREATH", "SWALLOWING.DIFFICULTY", "CHEST.PAIN"
+)
+
+# Convert each binary factor to numeric 0/1
+for (col in binary_cols) {
+  encoded_data[[col]] <- ifelse(encoded_data[[col]] == "Yes", 1, 0)
+}
+# Encode Gender
+encoded_data$GENDER <- ifelse(encoded_data$GENDER == "M", 1, 0)
+
+# Encode Target Variable
+encoded_data$LUNG_CANCER <- ifelse(encoded_data$LUNG_CANCER == "YES", 1, 0)  # Numeric for SMOTE
+
+# Display the structure of the dataset to verify the changes
+str(encoded_data)  
+```
+
+### Classification
+
+Exploratory analysis revealed a pronounced class imbalance, with lung cancer cases substantially outnumbering non-cases. To mitigate potential model bias toward the majority class, Synthetic Minority Over-sampling Technique(SMOTE)) was applied to the training data to synthetically over-sample the minority class. A k-value of 5 was used, meaning each synthetic observation was generated using its five nearest neighbors. This approach improved class representation and supported more balanced model learning.
+
+Logistic Regression, Random Forest, XGBoost, K-Nearest Neighbours (KNN), and Support Vector Machines (SVM) were employed for lung cancer classification. All models were trained on the SMOTE-balanced dataset. Feature standardisation was applied for KNN and SVM due to their sensitivity to variable scales. Model predictions were evaluated on a test set using Receiver Operating Characteristic (ROC) curves.
+
+ROC curve analysis demonstrates clear performance differences among the evaluated models, with models closer to the top-left corner perform better. ROC AUC results indicate strong discriminative performance across all models, with XGBoost achieving the highest ROC AUC, closely followed by Random Forest and Logistic Regression. SVM and KNN demonstrate comparatively lower ROC AUC values, suggesting weaker separation between lung cancer and non–lung cancer classes.
+
+Confusion matrix analysis provides deeper insight into the misclassification behavior of each model. Logistic Regression demonstrates strong overall performance with a relatively low number of false negatives, indicating good sensitivity in detecting lung cancer cases, though it still produces a small number of false positives. Random Forest further reduces false negatives compared to Logistic Regression, highlighting its strong ability to correctly identify lung cancer cases, albeit with a slightly higher false positive rate. XGBoost achieves one of the best overall balances, maintaining both low false positive and false negative counts, resulting in consistently reliable predictions across both classes. KNN shows the weakest performance among the models, with a noticeably higher number of false positives and a lower true positive count, suggesting reduced diagnostic reliability. SVM provides a more balanced classification performance than KNN by effectively managing false positives and false negatives,but remaining slightly less effective than the ensemble-based models, particularly Random Forest and XGBoost.
+
+Model performance was also assessed using accuracy, F1 score, and Area Under the Receiver Operating Characteristic Curve(ROC AUC). While accuracy provides an overall measure of correctness, it can be unreliable when classes are imbalanced. The F1 score addresses this limitation by combining precision and recall, making it particularly appropriate for medical classification problems.ROC AUC assesses each model’s capacity to distinguish between lung cancer and non–lung cancer cases across all possible decision thresholds.
+
+Performance comparisons using accuracy and F1 score show that XGBoost achieves the best overall results, followed closely by SVM and Random Forest. Logistic Regression produces competitive but slightly lower accuracy and F1 scores, while KNN consistently records the lowest values across both metrics.
+
+Overall, the results suggest that XGBoost provides the most reliable and balanced classification performance for lung cancer prediction, demonstrating strong accuracy, F1 score, and high discriminative ability. Although Logistic Regression attains the highest ROC-AUC, its slightly lower F1 score suggests a less favourable balance between precision and recall compared with XGBoost. Consequently, XGBoost is selected as the preferred model for this task.
+
+```{r}
+# Separate features and target
+X <- encoded_data[, -which(names(encoded_data) == "LUNG_CANCER")]
+y <- encoded_data$LUNG_CANCER  # 0 = No, 1 = Yes
+
+# Apply SMOTE
+smote_out <- SMOTE(X = X, target = y, K = 5, dup_size = 2) # dup_size=2 doubles minority class
+
+# Combine synthetic data with target
+balanced_data <- smote_out$data
+# The 'class' column is numeric (0/1) → convert to factor properly
+balanced_data$LUNG_CANCER <- factor(balanced_data$class)
+balanced_data$class <- NULL  # Drop the 'class' column created by SMOTE
+
+# Check class distribution
+table(balanced_data$LUNG_CANCER)
+```
+
+```{r}
+# Verify the balanced dataset structure
+str(balanced_data)
+```
+
+```{r}
+# Split into training and test sets
+set.seed(123)
+train_index <- createDataPartition(balanced_data$LUNG_CANCER, p = 0.8, list = FALSE)
+train_data <- balanced_data[train_index, ]
+test_data  <- balanced_data[-train_index, ]
+
+# Logistic Regression
+logit_model <- glm(LUNG_CANCER ~ ., data = train_data, family = binomial)
+logit_pred <- predict(logit_model, test_data, type = "response")
+logit_class <- factor(ifelse(logit_pred > 0.5, "1", "0"), levels = c("0","1"))
+logit_roc <- roc(
+  response  = test_data$LUNG_CANCER,
+  predictor = logit_pred,
+  levels    = c("0", "1"),  
+  direction = "<",
+  quiet     = TRUE           
+)
+
+# Random Forest
+rf.3_model <- randomForest(LUNG_CANCER ~ ., data = train_data, importance = TRUE)
+rf_preds <- predict(rf.3_model, test_data)
+rf_class <- factor(rf_preds, levels = c("0","1"))
+rf_probs <- predict(rf.3_model, test_data, type = "prob")[, "1"]
+rf_roc <- roc(response = test_data$LUNG_CANCER, predictor = rf_probs, levels = c("0", "1"), direction = "<")
+results$random_forest <- list(
+  model = rf.3_model,
+  preds = rf_preds,
+  probs = rf_probs,
+  roc   = rf_roc
+)
+
+# XGBoost
+y_train <- as.numeric(as.character(train_data$LUNG_CANCER))
+y_test  <- as.numeric(as.character(test_data$LUNG_CANCER))
+x_train <- as.matrix(train_data[, -which(names(train_data) == "LUNG_CANCER")])
+x_test  <- as.matrix(test_data[, -which(names(test_data) == "LUNG_CANCER")])
+## Create DMatrix
+dtrain <- xgb.DMatrix(data = x_train, label = y_train)
+dtest  <- xgb.DMatrix(data = x_test, label = y_test)
+## Parameters
+params <- list(
+  objective = "binary:logistic",
+  max_depth = 6,
+  eta = 0.3,
+  eval_metric = "logloss",
+  verbosity = 0
+)
+## Train XGBoost model
+xgb_model <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = 100
+)
+xgb_probs <- predict(xgb_model, dtest)
+xgb_class <- factor(ifelse(xgb_probs > 0.5, "1", "0"), levels = c("0","1"))
+xgb_roc <- roc(
+  response  = y_test,     
+  predictor = xgb_probs,  
+  levels    = c(0, 1),  
+  direction = "<",
+  quiet     = TRUE      
+)
+
+# KNN
+preprocess <- preProcess(train_data[, -which(names(train_data) == "LUNG_CANCER")], method = c("center", "scale"))
+train_scaled <- predict(preprocess, train_data)
+test_scaled <- predict(preprocess, test_data)
+
+set.seed(123)
+knn_model <- train(LUNG_CANCER ~ ., data = train_scaled, method = "knn",
+                   tuneGrid = data.frame(k = seq(3, 15, by = 2)),
+                   trControl = trainControl(method = "cv", number = 10))
+knn_preds_class <- predict(knn_model, test_scaled)
+knn_class <- factor(knn_preds_class, levels = c("0","1"))
+knn_roc <- roc(
+  response  = test_scaled$LUNG_CANCER,
+  predictor = as.numeric(knn_preds_class) - 1,
+  levels    = c("0", "1"),  
+  direction = "<",
+  quiet     = TRUE         
+)
+
+# SVM
+set.seed(123)
+svm_model <- train(LUNG_CANCER ~ ., data = train_scaled, method = "svmRadial",
+                   tuneLength = 10, trControl = trainControl(method = "cv", number = 10))
+svm_preds_class <- predict(svm_model, test_scaled)
+svm_class <- factor(svm_preds_class, levels = c("0","1"))
+svm_roc <- roc(
+  response  = test_scaled$LUNG_CANCER,
+  predictor = as.numeric(svm_preds_class) - 1,
+  levels    = c("0", "1"),  
+  direction = "<",
+  quiet     = TRUE          
+)
+```
+
+```{r}
+# Plot ROC Curves for All Models
+plot(logit_roc, col = "blue", main = "ROC Curves for All Models", lwd = 2)
+plot(rf_roc, col = "red", add = TRUE, lwd = 2)
+plot(xgb_roc, col = "green", add = TRUE, lwd = 2)
+plot(knn_roc, col = "purple", add = TRUE, lwd = 2)
+plot(svm_roc, col = "orange", add = TRUE, lwd = 2)
+legend("bottomright", 
+       legend = c("Logistic Regression", "Random Forest", "XGBoost", "KNN", "SVM"),
+       col = c("blue", "red", "green", "purple", "orange"), lwd = 2)
+
+```
+
+```{r}
+# Define a function to plot confusion matrices
+plot_confusion_matrix <- function(conf_matrix, title) {
+  fourfoldplot(
+    conf_matrix$table,
+    color = c("#FF6666", "#99CC99"),
+    conf.level = 0,
+    main = title
+  )
+}
+
+# Plot confusion matrices side-by-side
+par(mfrow = c(2, 3))
+
+plot_confusion_matrix(
+  confusionMatrix(logit_class, test_data$LUNG_CANCER, positive = "1"),
+  "Logistic Regression"
+)
+
+plot_confusion_matrix(
+  confusionMatrix(rf_class, test_data$LUNG_CANCER, positive = "1"),
+  "Random Forest"
+)
+
+plot_confusion_matrix(
+  confusionMatrix(xgb_class, test_data$LUNG_CANCER, positive = "1"),
+  "XGBoost"
+)
+
+plot_confusion_matrix(
+  confusionMatrix(knn_class, test_scaled$LUNG_CANCER, positive = "1"),
+  "KNN"
+)
+
+plot_confusion_matrix(
+  confusionMatrix(svm_class, test_scaled$LUNG_CANCER, positive = "1"),
+  "SVM"
+)
+
+par(mfrow = c(1, 1))
+
+```
+
+```{r}
+# Compile model performance metrics
+model_performance <- data.frame(
+  Model = c(
+    "Logistic Regression",
+    "Random Forest",
+    "XGBoost",
+    "KNN",
+    "SVM"
+  ),
+  Accuracy = c(
+    confusionMatrix(logit_class, test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(rf_class, test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(as.factor(xgb_class), test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(knn_class, test_scaled$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(svm_class, test_scaled$LUNG_CANCER)$overall["Accuracy"]
+  ),
+  F1_Score = c(
+    confusionMatrix(as.factor(logit_class), test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(rf_class, test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(as.factor(xgb_class), test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(knn_class, test_scaled$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(svm_class, test_scaled$LUNG_CANCER)$byClass["F1"]
+  ),
+  ROC_AUC = c(
+    auc(logit_roc),
+    auc(rf_roc),
+    auc(xgb_roc),
+    auc(knn_roc),
+    auc(svm_roc)
+  )
+)
+
+# Visualise accuracy comparison
+ggplot(model_performance, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_col() +
+  labs(
+    title = "Model Accuracy Comparison",
+    x = "Model",
+    y = "Accuracy"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+# Plot F1 Score
+ggplot(model_performance, aes(x = Model, y = F1_Score, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(title = "F1 Score Comparison", y = "F1 Score") +
+  theme_minimal()+
+  theme(legend.position = "none")
+
+```
+
+```{r}
+# Plot ROC AUC
+ggplot(model_performance, aes(x = Model, y = ROC_AUC, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(title = "ROC AUC Comparison", y = "ROC AUC") +
+  theme_minimal()+
+  theme(legend.position = "none")
+```
+
+```{r}
+pre_tuning_metrics <- data.frame(
+  Model = c("Logistic Regression", "Random Forest", "XGBoost", "KNN", "SVM"),
+  Accuracy = c(
+    confusionMatrix(as.factor(logit_class), test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(rf_class, test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(as.factor(xgb_class), test_data$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(knn_class, test_scaled$LUNG_CANCER)$overall["Accuracy"],
+    confusionMatrix(svm_class, test_scaled$LUNG_CANCER)$overall["Accuracy"]
+  ),
+  F1_Score = c(
+    confusionMatrix(as.factor(logit_class), test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(rf_class, test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(as.factor(xgb_class), test_data$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(knn_class, test_scaled$LUNG_CANCER)$byClass["F1"],
+    confusionMatrix(svm_class, test_scaled$LUNG_CANCER)$byClass["F1"]
+  ),
+  ROC_AUC = c(auc(logit_roc), auc(rf_roc), auc(xgb_roc), auc(knn_roc), auc(svm_roc))
+)
+
+# Print pre-tuning metrics
+print(pre_tuning_metrics)
+```
+
+### Tuning
+
+Finding the best parameters for a model is crucial to achieving optimal performance. Parameter tuning helps improve accuracy by optimising the model’s learning process and enhancing its generalisation to unseen data. Proper tuning also balances the trade-off between overfitting and underfitting. For example, adjusting tree depth in decision trees or the regularization strength in logistic regression can manage model complexity, directly impacting the balance between bias and variance.
+
+Model evaluation metrics provide insights into performance stability. Kappa measures inter-rater agreement for categorical items, accounts for agreement occurring by chance. The higher the value of kappa, the stronger the agreement(Minitab., n.d.). McNemar’s Test evaluates the marginal homogeneity between two sets of dichotomous outcomes. A p-value bigger than the significance level indicates that the changes from tuning did not significantly affect false positives or false negatives, implying the model’s stability is maintained after tuning(Raschka,S., n.d.).
+
+For individual models, parameter tuning strategies vary by algorithm. In logistic regression, using **"glmnet"** allows automatic consideration of both L1 and L2 regularization. Tuning parameters such as **"alpha"** and **"lambda"** helps find the right balance, controlling overfitting and improving generalization.
+
+In random forests, tuning **"mtry(the number of variables)"** considered at each split—optimizes the complexity and performance of each tree, enhancing overall generalization.
+
+For **"K-nearest neighbors(KNN)"**, the **"k(number of neighbors)"** determines the degree to which the model responds to noise in the training data. Smaller **"k"** values may overfit to the training set, while larger values produce smoother decision boundaries.
+
+**"Support Vector Machines(SVM)"** rely on tuning the **"C(cost parameter)"** and **"sigma(kernel coefficient)"** to balance training accuracy with model complexity for better generalization.
+
+In **"XGBoost"**, parameters like **"eta(learning rate)"**, **"max_depth(tree depth)"**, and **"nrounds(number of trees)"** are tuned to optimize both learning efficiency and model complexity.
+
+```{r}
+ctrl <- trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 3,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary,
+  savePredictions = "final"
+)
+```
+
+Logistic Regression Hyperparameter Tuning
+
+```{r}
+# Define the hyperparameter grid for logistic regression
+tuneGrid_lr <- expand.grid(
+  alpha = seq(0, 1, length = 5),       # Ridge (0) to Lasso (1)
+  lambda = seq(0.001, 1, length = 10) # Regularization strength
+)
+
+# Train the logistic regression model with cross-validation
+logit_tuned <- train(
+  LUNG_CANCER ~ ., 
+  data = train_data, 
+  method = "glmnet",
+  tuneGrid = tuneGrid_lr, 
+  trControl = trainControl(method = "cv", number = 10) # Cross-validation
+)
+
+# Best parameters
+print(logit_tuned$bestTune)
+```
+
+```{r}
+plot(logit_tuned)
+```
+
+```{r}
+# Predict and evaluate
+test_data$LUNG_CANCER <- factor(test_data$LUNG_CANCER)
+logit_tuned_pred <- predict(logit_tuned, test_data)
+logit_tuned_metrics <- confusionMatrix(logit_tuned_pred, test_data$LUNG_CANCER)
+print(logit_tuned_metrics)
+```
+
+```{r}
+# Logistic Regression ROC and AUC
+logit_tuned_probs <- predict(logit_tuned, test_data, type = "prob")[, 2]
+logit_tuned_roc <- roc(as.numeric(test_data$LUNG_CANCER), logit_tuned_probs, quiet = TRUE)
+logit_tuned_auc <- auc(logit_tuned_roc)
+```
+
+Random Forest Hyperparameter Tuning
+
+```{r}
+tuneGrid_rf <- expand.grid(mtry = c(2, 5, 10))
+
+rf_tuned <- train(
+  LUNG_CANCER ~ ., 
+  data = train_data, 
+  method = "rf",
+  tuneGrid = tuneGrid_rf, 
+  ntree = 500, # Fixed number of trees
+  trControl = trainControl(method = "cv", number = 10) # Cross-validation
+)
+
+# Best parameters
+print(rf_tuned$bestTune)
+```
+
+```{r}
+plot(rf_tuned)
+```
+
+```{r}
+# Predict and evaluate
+rf_tuned_preds <- predict(rf_tuned, test_data)
+rf_tuned_metrics <- confusionMatrix(rf_tuned_preds, test_data$LUNG_CANCER)
+print(rf_tuned_metrics)
+```
+
+```{r}
+# Random Forest ROC and AUC
+rf_tuned_probs <- predict(rf_tuned, test_data, type = "prob")[, 2]
+rf_tuned_roc <- roc(as.numeric(test_data$LUNG_CANCER), rf_tuned_probs, quiet = TRUE)
+rf_tuned_auc <- auc(rf_tuned_roc)
+```
+
+KNN Hyperparameter Tuning
+
+```{r}
+tuneGrid_knn <- expand.grid(k = seq(3, 20, 2))
+
+set.seed(123)
+knn_tuned <- train(
+  LUNG_CANCER ~ ., 
+  data = train_scaled, 
+  method = "knn", 
+  tuneGrid = tuneGrid_knn, 
+  trControl = trainControl(method = "cv", number = 10) # Cross-validation
+)
+
+# Best parameters
+print(knn_tuned$bestTune)
+```
+
+```{r}
+plot(knn_tuned)
+```
+
+```{r}
+# Predict and evaluate
+knn_tuned_preds <- predict(knn_tuned, test_scaled)
+knn_tuned_metrics <- confusionMatrix(knn_tuned_preds, test_scaled$LUNG_CANCER)
+print(knn_tuned_metrics)
+```
+
+```{r}
+# KNN ROC and AUC
+knn_tuned_probs <- predict(knn_tuned, test_scaled, type = "prob")[, 2]
+knn_tuned_roc <- roc(as.numeric(test_scaled$LUNG_CANCER), knn_tuned_probs, quiet = TRUE)
+knn_tuned_auc <- auc(knn_tuned_roc)
+```
+
+SVM Hyperparameter Tuning
+
+```{r}
+tuneGrid_svm <- expand.grid(
+  C = seq(0.1, 1, by = 0.1),
+  sigma = seq(0.01, 0.1, by = 0.01)
+)
+
+# Convert 'LUNG_CANCER' to a factor with valid levels
+train_scaled$LUNG_CANCER <- factor(train_scaled$LUNG_CANCER, levels = c(0, 1), labels = c("Class0", "Class1"))
+test_scaled$LUNG_CANCER <- factor(test_scaled$LUNG_CANCER, levels = c(0, 1), labels = c("Class0", "Class1"))
+
+levels(train_scaled$LUNG_CANCER)
+```
+
+```{r}
+levels(test_scaled$LUNG_CANCER)
+```
+
+```{r}
+svm_tuned <- train(
+  LUNG_CANCER ~ ., 
+  data = train_scaled, 
+  method = "svmRadial", 
+  tuneGrid = tuneGrid_svm, 
+  trControl = trainControl(method = "cv", number = 10, classProbs = TRUE), # Enable class probabilities
+  preProcess = c("center", "scale"),
+  probability = TRUE
+)
+
+svm_tuned_probs <- predict(svm_tuned, test_scaled, type = "prob")[, "Class1"] # Use the correct class label
+svm_tuned_roc <- roc(as.numeric(test_scaled$LUNG_CANCER) - 1, svm_tuned_probs, quiet = TRUE)
+svm_tuned_auc <- auc(svm_tuned_roc)
+print(svm_tuned_auc)
+```
+
+```{r}
+# Predict and evaluate
+svm_tuned_pred <- predict(svm_tuned, test_scaled) 
+svm_tuned_metrics <- confusionMatrix(svm_tuned_pred, test_scaled$LUNG_CANCER) 
+print(svm_tuned_metrics)
+```
+
+XGBoost Hyperparameter Tuning
+
+```{r}
+# Hyperparameter grid
+param_grid <- expand.grid(
+  eta = c(0.01, 0.1, 0.3),
+  max_depth = c(4, 6, 8),
+  nrounds = c(50, 100, 150)
+)
+
+best_auc <- -Inf
+best_params <- NULL
+best_nrounds <- NULL
+
+set.seed(123)
+
+# Tuning loop
+for (i in 1:nrow(param_grid)) {
+
+  params <- list(
+    objective = "binary:logistic",
+    eta = param_grid$eta[i],
+    max_depth = param_grid$max_depth[i],
+    eval_metric = "logloss"  
+  )
+
+  cat("\n--- Trying combination", i, "of", nrow(param_grid), "---\n")
+  cat("eta =", params$eta, "| max_depth =", params$max_depth,
+      "| nrounds =", param_grid$nrounds[i], "\n")
+
+   # Train model
+  model <- xgb.train(
+    params = params,
+    data = dtrain,
+    nrounds = param_grid$nrounds[i],
+    evals = list(train = dtrain, test = dtest), 
+    early_stopping_rounds = 10,
+    print_every_n = 10,
+    verbose = 1
+  )
+
+
+# Manual AUC extraction
+
+  pred_probs <- predict(model, dtest)
+  auc_val <- as.numeric(
+    roc(response = y_test,
+        predictor = pred_probs,
+        levels = c(0, 1),
+        direction = "<",
+        quiet = TRUE)$auc  
+  )
+
+  cat("Test AUC for this combo:", round(auc_val, 4), "\n")
+
+  # Update best parameters
+  if (!is.na(auc_val) && auc_val > best_auc) {
+    best_auc <- auc_val
+    best_params <- params
+    best_nrounds <- if (!is.null(model$best_iteration)) model$best_iteration else param_grid$nrounds[i]
+    cat(">>> NEW BEST MODEL FOUND <<<\n")
+  }
+}
+```
+
+```{r}
+print(best_params)
+```
+
+```{r}
+print(paste("Best AUC:", best_auc))
+```
+
+```{r}
+# Convert predictors to numeric matrix
+x_train_tuned <- as.matrix(train_data[, -which(names(train_data) == "LUNG_CANCER")])
+x_test_tuned  <- as.matrix(test_data[, -which(names(test_data) == "LUNG_CANCER")])
+
+# Convert factor target to numeric 0/1
+y_train_tuned <- as.numeric(train_data$LUNG_CANCER) - 1  # "0" -> 0, "1" -> 1
+y_test_tuned  <- as.numeric(test_data$LUNG_CANCER) - 1
+
+# Create DMatrix objects
+dtrain_tuned <- xgb.DMatrix(data = x_train_tuned, label = y_train_tuned)
+dtest_tuned  <- xgb.DMatrix(data = x_test_tuned, label = y_test_tuned)
+```
+
+```{r}
+# Train final XGBoost model
+final_xgb_tuned <- xgb.train(
+  params = best_params,
+  data = dtrain_tuned,
+  nrounds = best_nrounds,
+  evals = list(train = dtrain_tuned, test = dtest_tuned),
+  verbose = 0
+)
+```
+
+```{r}
+# Predict and evaluate
+xgb_tuned_preds <- predict(final_xgb_tuned, dtest_tuned)
+xgb_tuned_class <- ifelse(xgb_tuned_preds > 0.5, 1, 0)
+xgb_tuned_metrics <- confusionMatrix(as.factor(xgb_tuned_class), as.factor(as.numeric(test_data$LUNG_CANCER) - 1))
+print(xgb_tuned_metrics)
+```
+
+```{r}
+# XGBoost ROC and AUC
+xgb_tuned_roc <- roc(as.numeric(test_data$LUNG_CANCER) - 1, xgb_tuned_preds, quiet = TRUE)
+xgb_tuned_auc <- auc(xgb_tuned_roc)
+
+# Add metrics to model_comparison
+model_comparison <- data.frame(
+  Model = c("Logistic Regression", "Random Forest", "XGBoost", "KNN", "SVM"),
+  Accuracy = c(
+    logit_tuned_metrics$overall["Accuracy"],
+    rf_tuned_metrics$overall["Accuracy"],
+    xgb_tuned_metrics$overall["Accuracy"],
+    knn_tuned_metrics$overall["Accuracy"],
+    svm_tuned_metrics$overall["Accuracy"]
+  ),
+  F1_Score = c(
+    logit_tuned_metrics$byClass["F1"],
+    rf_tuned_metrics$byClass["F1"],
+    xgb_tuned_metrics$byClass["F1"],
+    knn_tuned_metrics$byClass["F1"],
+    svm_tuned_metrics$byClass["F1"]
+  ),
+  AUC = c(
+    logit_tuned_auc,
+    rf_tuned_auc,
+    xgb_tuned_auc,
+    knn_tuned_auc,
+    svm_tuned_auc
+  )
+)
+
+print(model_comparison)
+```
+
+```{r}
+# Plot ROC Curves for All Models after tuning
+plot(logit_tuned_roc, col = "blue", main = "ROC Curves for All Models After Tuning", lwd = 2)
+plot(rf_tuned_roc, col = "red", add = TRUE, lwd = 2)
+plot(xgb_tuned_roc, col = "green", add = TRUE, lwd = 2)
+plot(knn_tuned_roc, col = "purple", add = TRUE, lwd = 2)
+plot(svm_tuned_roc, col = "orange", add = TRUE, lwd = 2)
+
+legend("bottomright", 
+       legend = c("Logistic Regression", "Random Forest", "XGBoost", "KNN", "SVM"),
+       col = c("blue", "red", "green", "purple", "orange"), 
+       lwd = 2)
+```
+
+### Summary of Classification
+
+**Insights from the results:** Overall, hyperparameter tuning led to consistent performance improvements across most models, as reflected in ROC AUC, F1 score, and accuracy. This indicates that tuning effectively improved both the models’ discriminative ability and their balance between precision and recall, while maintaining stable classification accuracy.
+
+Tree-based models demonstrated the most stable performance. Random Forest showed small improvements in accuracy and F1 score, with a slight decrease in ROC AUC, but overall remained robust and well-generalised. XGBoost showed virtually no change in accuracy or F1 score and only a marginal improvement in ROC AUC, suggesting limited benefit from tuning.
+
+Logistic Regression and SVM exhibited mixed results after tuning. Logistic Regression achieved a notable improvement in F1 score but experienced declines in accuracy and ROC AUC, indicating a trade-off between class balance and overall discrimination. SVM showed improved ROC AUC but a slight reduction in F1 score, with accuracy remaining unchanged.
+
+KNN showed no improvement in accuracy or F1 score, although its ROC AUC increased after tuning, suggesting better ranking ability without improved classification performance.
+
+**Model recommendation:** Overall, Random Forest is the most reliable model, delivering consistently strong performance across all metrics with minimal sensitivity to tuning. XGBoost provides a competitive alternative with stable results and efficient training.
+
+```{r}
+# Retrieve post-tuning model metrics
+post_tuning_metrics <- model_comparison
+
+# Combine pre-tuning and post-tuning metrics into a single data frame for comparison
+combined_metrics <- data.frame(
+  Model = pre_tuning_metrics$Model,
+  Pre_Accuracy = pre_tuning_metrics$Accuracy,
+  Post_Accuracy = post_tuning_metrics$Accuracy,
+  Pre_F1_Score = pre_tuning_metrics$F1_Score,
+  Post_F1_Score = post_tuning_metrics$F1_Score,
+  Pre_ROC_AUC = pre_tuning_metrics$ROC_AUC,
+  Post_ROC_AUC = post_tuning_metrics$AUC
+)
+
+# Reshape the data for easy plotting
+combined_metrics_long <- combined_metrics %>%
+  pivot_longer(
+    cols = -Model,
+    names_to = c("Phase", "Metric"),
+    names_pattern = "(Pre|Post)_(.*)",  # capture "Pre" or "Post" as Phase, everything else as Metric
+    values_to = "Value"
+  )
+
+# Display the reshaped data frame
+print(combined_metrics_long)
+
+```
+
+```{r}
+# Plot accuracy comparison before and after tuning
+ggplot(combined_metrics_long %>% filter(Metric == "Accuracy"), aes(x = Model, y = Value, fill = Phase)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Value, 3)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Accuracy Comparison Before and After Tuning", y = "Accuracy", fill = "Phase") +
+  theme_minimal()
+```
+
+```{r}
+# Plot F1 score comparison before and after tuning
+ggplot(combined_metrics_long %>% filter(Metric == "F1_Score"), aes(x = Model, y = Value, fill = Phase)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Value, 3)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "F1 Score Comparison Before and After Tuning", y = "F1 Score", fill = "Phase") +
+  theme_minimal()
+```
+
+```{r}
+# Plot ROC AUC comparison before and after tuning
+ggplot(combined_metrics_long %>% filter(Metric == "ROC_AUC"), aes(x = Model, y = Value, fill = Phase)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Value, 3)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "ROC AUC Comparison Before and After Tuning", y = "ROC AUC", fill = "Phase") +
+  theme_minimal()
+```
+
+```{r}
+# Assuming rf_model is your trained Random Forest model from earlier
+rf_importance <- importance(rf.3_model)
+# Creating a data frame for visualization
+rf_importance_df <- data.frame(Feature = rownames(rf_importance), Importance = rf_importance[, "MeanDecreaseGini"])
+
+# Plotting feature importance
+ggplot(rf_importance_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip coordinates for horizontal layout
+  labs(title = "Feature Importance from Random Forest", x = "Features", y = "Importance") +
+  theme_minimal()
+```
