@@ -4,6 +4,12 @@
 
 Applied supervised and unsupervised machine learning techniques across three real-world datasets to solve clustering, regression and classification problems. This project demonstrates the complete machine learning workflow, from data preprocessing and feature engineering to model evaluation and interpretation.
 
+| Project        | Business Problem                    | Techniques                            | Evaluation            |
+| -------------- | ----------------------------------- | ------------------------------------- | --------------------- |
+| Wine Quality   | Identify natural groupings of wines | PCA, K-Means, Hierarchical Clustering | Silhouette Score      |
+| Housing Prices | Predict house prices                | Linear Regression, Ridge, Lasso       | RMSE, R²              |
+| Lung Cancer    | Predict cancer diagnosis            | Logistic Regression, KNN, Naive Bayes | Accuracy, F1, ROC AUC |
+
 ---
 
 ## 🎯 Project Objectives
