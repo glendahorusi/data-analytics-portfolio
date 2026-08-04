@@ -44,7 +44,7 @@ Applied supervised and unsupervised machine learning techniques across three rea
 
 **Skills**
 
-`Python` `R` `Machine Learning`
+`R` `Machine Learning`
 
 ➡️ [View Project](Machine-Learning)
 
